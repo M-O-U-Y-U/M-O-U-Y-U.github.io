@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>我的全息联机地图 (国内加速版)</title>
+    <title>我的全息联机地图 (ArcGIS专业版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -35,12 +35,12 @@
             top: 10px;
             right: 10px;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.95); /* 不透明度稍微高一点 */
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             padding: 10px;
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-            width: 180px; /* 稍微窄一点，适配手机 */
+            width: 180px;
             max-height: 40vh;
             overflow-y: auto;
         }
@@ -103,32 +103,33 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
-        // --- 1. 地图源设置 (国内优化版) ---
+        // --- 1. 地图源设置 (ArcGIS 专业版) ---
         
-        // 图层 A: 卫星混合图 (Esri) - 影像清晰
+        // 图层 A: 卫星混合图 (Satellite) - 你的最爱
         var satellite = L.layerGroup([
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
         ]);
 
-        // 图层 B: 灰色极简图 (CartoDB) - 速度快，适合看分布
+        // 图层 B: ArcGIS 街道图 (Streets) - 【修复点】
+        // 使用 Esri 官方街道图，代替不稳定的智图。坐标系 WGS84，无偏移，加载稳定。
+        var arcgisStreets = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: 'Tiles &copy; Esri'
+        });
+
+        // 图层 C: 极简灰图 (Canvas) - 备用
         var grayMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap & CartoDB'
         });
 
-        // 图层 C: 【重点更新】智图 GeoQ 彩色版 - 纯国内服务器，中文，速度极快！
-        var chinaMap = L.tileLayer('https://map.geoq.cn/ArcGIS/rest/services/ChinaOnlineCommunity/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19,
-            attribution: '© GeoQ'
-        });
-
-        // 初始化地图：默认使用“智图 GeoQ”，因为它在国内最快
+        // 初始化地图：默认改用 "ArcGIS 街道图"，既清晰又准
         var map = L.map('map', {
             center: [35.8617, 104.1954],
             zoom: 4,
-            layers: [chinaMap], // 默认图层改成了这个，保证不卡
+            layers: [arcgisStreets], 
             zoomControl: false
         });
         
@@ -136,7 +137,7 @@
 
         // 图层切换控件
         var baseMaps = {
-            "🚀 智图(国内极速)": chinaMap,
+            "🗺️ 街道地图 (ArcGIS)": arcgisStreets,
             "🌍 卫星混合图": satellite,
             "📄 极简灰图": grayMap
         };
@@ -167,7 +168,6 @@
                 var now = Date.now();
 
                 if (!otherPlayers[data.id]) {
-                    // 别人的点
                     var newMarker = L.circleMarker([data.lat, data.lng], {
                         color: '#ff0000', fillColor: '#f03', fillOpacity: 0.8, radius: 10
                     }).addTo(map).bindPopup("🚩 " + data.id);
@@ -185,7 +185,7 @@
             } catch (e) {}
         });
 
-        // --- 3. 列表刷新 & 距离计算 ---
+        // --- 3. 列表刷新 ---
         function updatePlayerList() {
             var container = document.getElementById('player-list-container');
             container.innerHTML = ""; 
@@ -213,7 +213,6 @@
                     <div class="player-dist">${distText}</div>
                 `;
                 
-                // 点击跳转
                 (function(targetLat, targetLng) {
                     item.onclick = function() {
                         map.flyTo([targetLat, targetLng], 18, { duration: 1.5 });
