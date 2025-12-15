@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>我的全息联机地图 (混合模式)</title>
+    <title>我的全息联机地图 (专业版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        body { margin: 0; padding: 0; }
+        body { margin: 0; padding: 0; font-family: "Microsoft YaHei", sans-serif; }
         #map { height: 100vh; width: 100%; }
         
-        /* 重新定位按钮样式 */
+        /* 重新定位按钮 */
         .locate-btn {
             position: absolute;
             bottom: 40px;
             right: 20px;
-            z-index: 1000;
+            z-index: 999;
             background: white;
             padding: 12px 20px;
             border-radius: 50px;
@@ -26,29 +26,74 @@
             font-weight: bold;
             color: #333;
             cursor: pointer;
-            transition: 0.2s;
         }
-        .locate-btn:active { background: #f0f0f0; transform: scale(0.95); }
-        
-        /* 状态显示栏 */
-        .status-bar {
+        .locate-btn:active { background: #f0f0f0; }
+
+        /* --- 新增：在线列表面板样式 --- */
+        .player-list-panel {
             position: absolute;
             top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
+            right: 10px;
             z-index: 1000;
-            background: rgba(0, 0, 0, 0.6);
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            width: 200px;
+            max-height: 40vh; /* 最多占屏幕高度的40% */
+            overflow-y: auto; /* 超出可滚动 */
+        }
+        .panel-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 5px;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            border: 1px solid #eee;
+        }
+        .player-item:hover {
+            background: #f0f7ff;
+            border-color: #3388ff;
+        }
+        .player-name {
+            font-size: 13px;
+            color: #333;
+            font-weight: 500;
+        }
+        .player-dist {
             font-size: 12px;
-            pointer-events: none;
+            color: #888;
+        }
+        .my-status {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 5px;
         }
     </style>
 </head>
 <body>
 
-    <div id="status" class="status-bar">正在连接卫星...</div>
+    <div class="player-list-panel">
+        <div class="panel-title">📡 在线队友</div>
+        <div id="player-list-container">
+            <div style="font-size:12px; color:#999; text-align:center; padding:10px;">等待队友加入...</div>
+        </div>
+        <div class="my-status" id="my-status-text">正在连接...</div>
+    </div>
 
     <div id="map"></div>
     
@@ -58,48 +103,64 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
-        // --- 第一步：初始化地图 ---
-        var map = L.map('map').setView([35.8617, 104.1954], 4); 
-
-        // 🏆 核心修改：三层叠加法 (Satellite + Roads + Labels)
+        // --- 1. 地图初始化 & 图层管理 ---
         
-        // 第 1 层：底层卫星影像 (Base)
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri',
-            maxZoom: 19
-        }).addTo(map);
+        // A. 卫星混合图 (Esri) - 好看
+        var satellite = L.layerGroup([
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
+        ]);
 
-        // 第 2 层：道路线条 (透明叠加层) - 这一层负责画线
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19
-        }).addTo(map);
+        // B. 标准街道图 (OSM) - 详细、清晰、路网全
+        var streetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        });
 
-        // 第 3 层：地名注记 (透明叠加层) - 这一层负责写字
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19
-        }).addTo(map);
+        // C. 高德/谷歌风格图 (CartoDB) - 极简
+        var lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap & CartoDB'
+        });
 
+        // 初始化地图，默认用“卫星图”
+        var map = L.map('map', {
+            center: [35.8617, 104.1954],
+            zoom: 4,
+            layers: [satellite], // 默认图层
+            zoomControl: false   // 隐藏默认的缩放按钮(为了美观，可不加)
+        });
+        
+        // 把缩放按钮放回左上角
+        L.control.zoom({position: 'topleft'}).addTo(map);
 
-        // --- 第二步：联机配置 (保持不变) ---
-        var myId = "Player_" + Math.floor(Math.random() * 8888);
-        document.getElementById('status').innerText = "我是: " + myId;
+        // 添加图层切换控件 (右上角那个层叠图标)
+        var baseMaps = {
+            "🌍 卫星混合图": satellite,
+            "🗺️ 标准街道图": streetMap,
+            "📄 极简地图": lightMap
+        };
+        L.control.layers(baseMaps).addTo(map);
 
+        // --- 2. 联机逻辑 ---
+
+        var myId = "User_" + Math.floor(Math.random() * 1000);
+        document.getElementById('my-status-text').innerText = "我是: " + myId;
+        
         var topic = 'mouyu/live/game'; 
-        var otherPlayers = {}; 
+        var otherPlayers = {}; // 存队友数据
+        var myLatLng = null;   // 存我的位置
         var myMarker = null;
 
-        // --- 第三步：连接 MQTT 服务器 ---
         var client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
         client.on('connect', function () {
-            console.log('✅ 已连接到服务器');
+            console.log('✅ 已连接');
             client.subscribe(topic);
-            L.popup().setLatLng(map.getCenter())
-                .setContent("<b>网络已连接！</b><br>正在等待 GPS...")
-                .openOn(map);
         });
 
-        // --- 第四步：处理消息 ---
+        // 收到消息
         client.on('message', function (topic, message) {
             try {
                 var data = JSON.parse(message.toString());
@@ -107,49 +168,101 @@
 
                 var now = Date.now();
 
+                // 新增或更新玩家
                 if (!otherPlayers[data.id]) {
                     var newMarker = L.circleMarker([data.lat, data.lng], {
                         color: '#ff0000', fillColor: '#f03', fillOpacity: 0.8, radius: 10
-                    }).addTo(map).bindPopup("🚩 队友: " + data.id);
+                    }).addTo(map).bindPopup("🚩 " + data.id);
                     
-                    otherPlayers[data.id] = { marker: newMarker, lastSeen: now };
+                    otherPlayers[data.id] = { marker: newMarker, lastSeen: now, lat: data.lat, lng: data.lng };
                 } else {
                     otherPlayers[data.id].marker.setLatLng([data.lat, data.lng]);
                     otherPlayers[data.id].lastSeen = now;
+                    otherPlayers[data.id].lat = data.lat;
+                    otherPlayers[data.id].lng = data.lng;
                 }
-            } catch (e) { console.error(e); }
+                
+                // 每次收到消息，都刷新一下列表
+                updatePlayerList();
+                
+            } catch (e) {}
         });
 
-        // --- 第五步：幽灵清除器 ---
+        // --- 3. 核心功能：刷新列表 & 距离计算 ---
+        function updatePlayerList() {
+            var container = document.getElementById('player-list-container');
+            container.innerHTML = ""; // 清空当前列表
+
+            var hasPlayers = false;
+
+            for (var id in otherPlayers) {
+                hasPlayers = true;
+                var p = otherPlayers[id];
+                
+                // 计算距离 (如果我有位置的话)
+                var distText = "未知距离";
+                if (myLatLng) {
+                    var d = map.distance(myLatLng, [p.lat, p.lng]); // Leaflet 自带测距 (米)
+                    if (d > 1000) {
+                        distText = (d / 1000).toFixed(1) + " km";
+                    } else {
+                        distText = Math.round(d) + " m";
+                    }
+                }
+
+                // 创建列表项 HTML
+                var item = document.createElement('div');
+                item.className = 'player-item';
+                item.innerHTML = `
+                    <div class="player-name">👤 ${id}</div>
+                    <div class="player-dist">${distText}</div>
+                `;
+                
+                // ！！！点击列表跳转功能！！！
+                // 使用闭包保存当前的经纬度
+                (function(targetLat, targetLng) {
+                    item.onclick = function() {
+                        map.flyTo([targetLat, targetLng], 18, { duration: 1.5 }); // 飞过去！
+                    };
+                })(p.lat, p.lng);
+
+                container.appendChild(item);
+            }
+
+            if (!hasPlayers) {
+                container.innerHTML = '<div style="font-size:12px; color:#999; text-align:center; padding:10px;">暂无其他队友</div>';
+            }
+        }
+
+        // --- 4. 幽灵清除 & 自动更新列表 ---
         setInterval(function() {
             var now = Date.now();
+            var listChanged = false;
             for (var id in otherPlayers) {
-                var player = otherPlayers[id];
-                if (now - player.lastSeen > 10000) {
-                    map.removeLayer(player.marker);
+                if (now - otherPlayers[id].lastSeen > 10000) {
+                    map.removeLayer(otherPlayers[id].marker);
                     delete otherPlayers[id];
+                    listChanged = true;
                 }
             }
+            if(listChanged) updatePlayerList();
         }, 2000);
 
-        // --- 第六步：定位与发送 ---
+
+        // --- 5. 定位与发送 ---
         function locateAndShare() {
-            map.locate({
-                setView: false,
-                maxZoom: 17,
-                timeout: 30000, 
-                enableHighAccuracy: true,
-                maximumAge: 0
-            });
+            map.locate({ setView: false, maxZoom: 17, timeout: 30000, enableHighAccuracy: true, maximumAge: 0 });
         }
 
         var isFirstLocate = true;
 
         map.on('locationfound', function(e) {
+            myLatLng = e.latlng; // 记录我的位置，用于算距离
+
             if (!myMarker) {
                 myMarker = L.circleMarker(e.latlng, {
                     color: '#3388ff', fillColor: '#3388ff', fillOpacity: 0.8, radius: 12
-                }).addTo(map).bindPopup("<b>🔵 我在这里</b>").openPopup();
+                }).addTo(map).bindPopup("<b>🔵 我</b>").openPopup();
             } else {
                 myMarker.setLatLng(e.latlng);
             }
@@ -157,22 +270,15 @@
             if (isFirstLocate) {
                 map.setView(e.latlng, 17);
                 isFirstLocate = false;
-                document.getElementById('status').innerText = "🟢 在线 | ID: " + myId;
             }
 
             var myData = { id: myId, lat: e.latlng.lat, lng: e.latlng.lng };
             client.publish(topic, JSON.stringify(myData));
         });
+        
+        map.on('locationerror', function(e) { console.log("定位中..."); });
 
-        map.on('locationerror', function(e) {
-            console.log("定位中...", e.message);
-        });
-
-        function manualLocate() {
-            isFirstLocate = true; 
-            locateAndShare();
-            alert("正在刷新位置，请稍候...");
-        }
+        function manualLocate() { isFirstLocate = true; locateAndShare(); alert("正在刷新位置..."); }
 
         locateAndShare();
         setInterval(locateAndShare, 3000);
