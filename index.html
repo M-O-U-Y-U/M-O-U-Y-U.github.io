@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>我的全息联机地图 (ArcGIS专业版)</title>
+    <title>M-O-U-Y-U 的text</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        body { margin: 0; padding: 0; font-family: "Microsoft YaHei", sans-serif; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         #map { height: 100vh; width: 100%; }
         
         /* 重新定位按钮 */
@@ -20,116 +20,111 @@
             background: white;
             padding: 12px 20px;
             border-radius: 50px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); /* 阴影调得更精致一点 */
             border: none;
             font-size: 14px;
-            font-weight: bold;
+            font-weight: 600;
             color: #333;
             cursor: pointer;
+            transition: all 0.2s ease;
         }
-        .locate-btn:active { background: #f0f0f0; }
+        .locate-btn:active { transform: scale(0.95); background: #f5f5f5; }
 
-        /* 在线列表面板样式 */
+        /* 在线列表面板 */
         .player-list-panel {
             position: absolute;
-            top: 10px;
-            right: 10px;
+            top: 20px; /* 稍微往下挪一点，留出呼吸感 */
+            right: 20px;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 10px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            backdrop-filter: blur(12px); /* 毛玻璃效果增强 */
+            padding: 15px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
             width: 180px;
             max-height: 40vh;
             overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.5);
         }
         .panel-title {
-            font-size: 14px;
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: #333;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #1a1a1a;
             border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
+            padding-bottom: 8px;
+            letter-spacing: 0.5px;
         }
         .player-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px;
-            margin-bottom: 5px;
-            background: white;
-            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            background: #f8f9fa;
+            border-radius: 8px;
             cursor: pointer;
-            transition: 0.2s;
-            border: 1px solid #eee;
+            transition: all 0.2s;
+            border: 1px solid transparent;
         }
         .player-item:hover {
-            background: #e6f2ff;
+            background: #eef4ff;
             border-color: #3388ff;
+            transform: translateY(-1px);
         }
-        .player-name {
-            font-size: 13px;
-            color: #333;
-            font-weight: 500;
-        }
-        .player-dist {
-            font-size: 12px;
-            color: #888;
-        }
-        .my-status {
-            font-size: 12px;
-            color: #666;
-            text-align: center;
-            margin-top: 5px;
-        }
+        .player-name { font-size: 13px; color: #333; font-weight: 600; }
+        .player-dist { font-size: 11px; color: #888; }
+        .my-status { font-size: 11px; color: #999; text-align: center; margin-top: 8px; }
+        
+        /* 隐藏 Leaflet 默认的版权信息(仅为了截图好看，实际建议保留) */
+        .leaflet-control-attribution { opacity: 0.5; font-size: 10px; }
     </style>
 </head>
 <body>
 
     <div class="player-list-panel">
-        <div class="panel-title">📡 在线队友</div>
+        <div class="panel-title">📡 附近信号</div>
         <div id="player-list-container">
-            <div style="font-size:12px; color:#999; text-align:center; padding:10px;">等待队友...</div>
+            <div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">扫描中...</div>
         </div>
-        <div class="my-status" id="my-status-text">正在连接...</div>
+        <div class="my-status" id="my-status-text">连接中...</div>
     </div>
 
     <div id="map"></div>
     
-    <button class="locate-btn" onclick="manualLocate()">📍 刷新位置</button>
+    <button class="locate-btn" onclick="manualLocate()">📍 定位我</button>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
-        // --- 1. 地图源设置 (ArcGIS 专业版) ---
+        // --- 1. 地图源设置 (CartoDB Voyager - 高清矢量风) ---
         
-        // 图层 A: 卫星混合图 (Satellite) - 你的最爱
+        // A. 默认图层：CartoDB Voyager (彩色导航图)
+        // 优点：和你喜欢的“灰图”是同一家出品，清晰度极高，但有漂亮的色彩和详细路名。
+        var voyagerMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap & CartoDB',
+            maxZoom: 20
+        });
+
+        // B. 备用图层：你喜欢的极简灰图
+        var lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap & CartoDB',
+            maxZoom: 20
+        });
+
+        // C. 备用图层：卫星混合图 (Esri)
         var satellite = L.layerGroup([
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
         ]);
 
-        // 图层 B: ArcGIS 街道图 (Streets) - 【修复点】
-        // 使用 Esri 官方街道图，代替不稳定的智图。坐标系 WGS84，无偏移，加载稳定。
-        var arcgisStreets = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19,
-            attribution: 'Tiles &copy; Esri'
-        });
-
-        // 图层 C: 极简灰图 (Canvas) - 备用
-        var grayMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap & CartoDB'
-        });
-
-        // 初始化地图：默认改用 "ArcGIS 街道图"，既清晰又准
+        // 初始化地图 - 默认使用 "Voyager"
         var map = L.map('map', {
             center: [35.8617, 104.1954],
             zoom: 4,
-            layers: [arcgisStreets], 
+            layers: [voyagerMap], 
             zoomControl: false
         });
         
@@ -137,16 +132,15 @@
 
         // 图层切换控件
         var baseMaps = {
-            "🗺️ 街道地图 (ArcGIS)": arcgisStreets,
-            "🌍 卫星混合图": satellite,
-            "📄 极简灰图": grayMap
+            "🗺️ 清楚的彩色图": voyagerMap,
+            "📄 你喜欢的灰图": lightMap,
+            "🌍 卫星影像": satellite
         };
         L.control.layers(baseMaps).addTo(map);
 
-        // --- 2. 联机逻辑 (保持不变) ---
-
+        // --- 2. 联机逻辑 ---
         var myId = "User_" + Math.floor(Math.random() * 1000);
-        document.getElementById('my-status-text').innerText = "我是: " + myId;
+        document.getElementById('my-status-text').innerText = "本机 ID: " + myId;
         
         var topic = 'mouyu/live/game'; 
         var otherPlayers = {}; 
@@ -156,7 +150,7 @@
         var client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
         client.on('connect', function () {
-            console.log('✅ 已连接');
+            console.log('✅ MQTT Connected');
             client.subscribe(topic);
         });
 
@@ -168,8 +162,14 @@
                 var now = Date.now();
 
                 if (!otherPlayers[data.id]) {
+                    // 创建别人的标记 (用红色圆圈)
                     var newMarker = L.circleMarker([data.lat, data.lng], {
-                        color: '#ff0000', fillColor: '#f03', fillOpacity: 0.8, radius: 10
+                        color: '#ff4d4f', 
+                        fillColor: '#ff4d4f', 
+                        fillOpacity: 0.9, 
+                        radius: 8,
+                        weight: 2,
+                        opacity: 1
                     }).addTo(map).bindPopup("🚩 " + data.id);
                     
                     otherPlayers[data.id] = { marker: newMarker, lastSeen: now, lat: data.lat, lng: data.lng };
@@ -196,20 +196,17 @@
                 hasPlayers = true;
                 var p = otherPlayers[id];
                 
-                var distText = "计算中...";
+                var distText = "--";
                 if (myLatLng) {
                     var d = map.distance(myLatLng, [p.lat, p.lng]); 
-                    if (d > 1000) {
-                        distText = (d / 1000).toFixed(1) + " km";
-                    } else {
-                        distText = Math.round(d) + " m";
-                    }
+                    if (d > 1000) distText = (d / 1000).toFixed(1) + "km";
+                    else distText = Math.round(d) + "m";
                 }
 
                 var item = document.createElement('div');
                 item.className = 'player-item';
                 item.innerHTML = `
-                    <div class="player-name">👤 ${id}</div>
+                    <div class="player-name">🟢 ${id}</div>
                     <div class="player-dist">${distText}</div>
                 `;
                 
@@ -223,7 +220,7 @@
             }
 
             if (!hasPlayers) {
-                container.innerHTML = '<div style="font-size:12px; color:#999; text-align:center; padding:10px;">暂无其他队友</div>';
+                container.innerHTML = '<div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">暂无其他人</div>';
             }
         }
 
@@ -241,7 +238,6 @@
             if(listChanged) updatePlayerList();
         }, 2000);
 
-
         // --- 5. 定位与发送 ---
         function locateAndShare() {
             map.locate({ setView: false, maxZoom: 17, timeout: 30000, enableHighAccuracy: true, maximumAge: 0 });
@@ -252,10 +248,16 @@
         map.on('locationfound', function(e) {
             myLatLng = e.latlng; 
 
+            // 我的标记 (蓝色呼吸感圆圈)
             if (!myMarker) {
                 myMarker = L.circleMarker(e.latlng, {
-                    color: '#3388ff', fillColor: '#3388ff', fillOpacity: 0.8, radius: 12
-                }).addTo(map).bindPopup("<b>🔵 我</b>").openPopup();
+                    color: '#1890ff', 
+                    fillColor: '#1890ff', 
+                    fillOpacity: 1, 
+                    radius: 10,
+                    weight: 3,
+                    opacity: 0.5
+                }).addTo(map).bindPopup("<b>我在这里</b>").openPopup();
             } else {
                 myMarker.setLatLng(e.latlng);
             }
@@ -271,7 +273,7 @@
         
         map.on('locationerror', function(e) { console.log("定位中..."); });
 
-        function manualLocate() { isFirstLocate = true; locateAndShare(); alert("正在刷新位置..."); }
+        function manualLocate() { isFirstLocate = true; locateAndShare(); alert("正在刷新 GPS..."); }
 
         locateAndShare();
         setInterval(locateAndShare, 3000);
