@@ -73,14 +73,14 @@
         var myId = "Player_" + Math.floor(Math.random() * 8888);
         document.getElementById('status').innerText = "我是: " + myId;
 
-        // 2. 定义房间暗号 (你可以改这个名字，比如 'mouyu/room1'，防止被别人看见)
+        // 2. 定义房间暗号 (为了避免冲突，建议保留这个长一点的名字)
         var topic = 'mouyu/live/game'; 
 
-        // 3. 存储其他玩家的标记
+        // 3. 存储其他玩家的信息，格式: { id: { marker: Marker对象, lastSeen: 时间戳 } }
         var otherPlayers = {}; 
         var myMarker = null;
 
-        // --- 第三步：连接 MQTT 服务器 (不用改) ---
+        // --- 第三步：连接 MQTT 服务器 ---
         var client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
         client.on('connect', function () {
@@ -92,7 +92,7 @@
                 .openOn(map);
         });
 
-        // --- 第四步：处理收到的消息 (显示别人) ---
+        // --- 第四步：处理收到的消息 (显示别人 + 记录时间) ---
         client.on('message', function (topic, message) {
             try {
                 var data = JSON.parse(message.toString());
@@ -100,7 +100,9 @@
                 // 如果是自己发的消息，忽略
                 if (data.id === myId) return;
 
-                // 如果是新玩家，画红点
+                var now = Date.now();
+
+                // 如果是新玩家
                 if (!otherPlayers[data.id]) {
                     var newMarker = L.circleMarker([data.lat, data.lng], {
                         color: '#ff0000',      // 红色边框
@@ -109,22 +111,44 @@
                         radius: 10
                     }).addTo(map).bindPopup("🚩 队友: " + data.id);
                     
-                    otherPlayers[data.id] = newMarker;
+                    // 【关键】记录它是谁，以及“最后一次看见它的时间”
+                    otherPlayers[data.id] = {
+                        marker: newMarker,
+                        lastSeen: now
+                    };
                 } else {
-                    // 如果是老玩家，移动红点位置
-                    otherPlayers[data.id].setLatLng([data.lat, data.lng]);
+                    // 老玩家：更新位置，并刷新“最后在线时间”
+                    otherPlayers[data.id].marker.setLatLng([data.lat, data.lng]);
+                    otherPlayers[data.id].lastSeen = now;
                 }
             } catch (e) {
                 console.error("数据解析错误", e);
             }
         });
 
-        // --- 第五步：定位并发送我的位置 ---
+        // --- 第五步：幽灵清除器 (每 2 秒检查一次) ---
+        setInterval(function() {
+            var now = Date.now();
+            // 遍历所有已知的玩家
+            for (var id in otherPlayers) {
+                var player = otherPlayers[id];
+                // 如果这个玩家超过 10秒 (10000毫秒) 没发消息
+                if (now - player.lastSeen > 10000) {
+                    console.log("👻 玩家离开，清除:", id);
+                    // 1. 从地图上删掉圆点
+                    map.removeLayer(player.marker);
+                    // 2. 从内存里删掉记录
+                    delete otherPlayers[id];
+                }
+            }
+        }, 2000); // 定时器：每2秒运行一次
+
+        // --- 第六步：定位并发送我的位置 ---
         
         function locateAndShare() {
             // 使用之前调试成功的参数：30秒超时 + 高精度
             map.locate({
-                setView: false, // 这里设为 false，防止每次更新地图都乱跳，只有第一次跳
+                setView: false, // 防止每次更新视角乱跳
                 maxZoom: 17,
                 timeout: 30000, 
                 enableHighAccuracy: true,
@@ -132,7 +156,7 @@
             });
         }
 
-        // 首次定位标志，防止地图一直乱动
+        // 首次定位标志
         var isFirstLocate = true;
 
         map.on('locationfound', function(e) {
@@ -152,7 +176,7 @@
             if (isFirstLocate) {
                 map.setView(e.latlng, 17);
                 isFirstLocate = false;
-                document.getElementById('status').innerText = "🟢 已定位 | ID: " + myId;
+                document.getElementById('status').innerText = "🟢 在线 | ID: " + myId;
             }
 
             // 2. 把坐标广播给别人
@@ -167,10 +191,6 @@
 
         map.on('locationerror', function(e) {
             console.log("定位中...", e.message);
-            // 只有完全失败时才提示，避免频繁弹窗
-            if(isFirstLocate) {
-               // document.getElementById('status').innerText = "定位中...请在户外尝试";
-            }
         });
 
         // 按钮点击手动定位
@@ -180,7 +200,7 @@
             alert("正在刷新位置，请稍候...");
         }
 
-        // --- 第六步：启动循环 ---
+        // --- 第七步：启动循环 ---
         // 立即执行一次
         locateAndShare();
         
