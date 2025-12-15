@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>我的全息联机地图 (专业版)</title>
+    <title>我的全息联机地图 (国内加速版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -29,20 +29,20 @@
         }
         .locate-btn:active { background: #f0f0f0; }
 
-        /* --- 新增：在线列表面板样式 --- */
+        /* 在线列表面板样式 */
         .player-list-panel {
             position: absolute;
             top: 10px;
             right: 10px;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95); /* 不透明度稍微高一点 */
             backdrop-filter: blur(10px);
             padding: 10px;
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-            width: 200px;
-            max-height: 40vh; /* 最多占屏幕高度的40% */
-            overflow-y: auto; /* 超出可滚动 */
+            width: 180px; /* 稍微窄一点，适配手机 */
+            max-height: 40vh;
+            overflow-y: auto;
         }
         .panel-title {
             font-size: 14px;
@@ -65,7 +65,7 @@
             border: 1px solid #eee;
         }
         .player-item:hover {
-            background: #f0f7ff;
+            background: #e6f2ff;
             border-color: #3388ff;
         }
         .player-name {
@@ -90,7 +90,7 @@
     <div class="player-list-panel">
         <div class="panel-title">📡 在线队友</div>
         <div id="player-list-container">
-            <div style="font-size:12px; color:#999; text-align:center; padding:10px;">等待队友加入...</div>
+            <div style="font-size:12px; color:#999; text-align:center; padding:10px;">等待队友...</div>
         </div>
         <div class="my-status" id="my-status-text">正在连接...</div>
     </div>
@@ -103,54 +103,53 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
-        // --- 1. 地图初始化 & 图层管理 ---
+        // --- 1. 地图源设置 (国内优化版) ---
         
-        // A. 卫星混合图 (Esri) - 好看
+        // 图层 A: 卫星混合图 (Esri) - 影像清晰
         var satellite = L.layerGroup([
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
         ]);
 
-        // B. 标准街道图 (OSM) - 详细、清晰、路网全
-        var streetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        });
-
-        // C. 高德/谷歌风格图 (CartoDB) - 极简
-        var lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        // 图层 B: 灰色极简图 (CartoDB) - 速度快，适合看分布
+        var grayMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap & CartoDB'
         });
 
-        // 初始化地图，默认用“卫星图”
+        // 图层 C: 【重点更新】智图 GeoQ 彩色版 - 纯国内服务器，中文，速度极快！
+        var chinaMap = L.tileLayer('https://map.geoq.cn/ArcGIS/rest/services/ChinaOnlineCommunity/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: '© GeoQ'
+        });
+
+        // 初始化地图：默认使用“智图 GeoQ”，因为它在国内最快
         var map = L.map('map', {
             center: [35.8617, 104.1954],
             zoom: 4,
-            layers: [satellite], // 默认图层
-            zoomControl: false   // 隐藏默认的缩放按钮(为了美观，可不加)
+            layers: [chinaMap], // 默认图层改成了这个，保证不卡
+            zoomControl: false
         });
         
-        // 把缩放按钮放回左上角
         L.control.zoom({position: 'topleft'}).addTo(map);
 
-        // 添加图层切换控件 (右上角那个层叠图标)
+        // 图层切换控件
         var baseMaps = {
+            "🚀 智图(国内极速)": chinaMap,
             "🌍 卫星混合图": satellite,
-            "🗺️ 标准街道图": streetMap,
-            "📄 极简地图": lightMap
+            "📄 极简灰图": grayMap
         };
         L.control.layers(baseMaps).addTo(map);
 
-        // --- 2. 联机逻辑 ---
+        // --- 2. 联机逻辑 (保持不变) ---
 
         var myId = "User_" + Math.floor(Math.random() * 1000);
         document.getElementById('my-status-text').innerText = "我是: " + myId;
         
         var topic = 'mouyu/live/game'; 
-        var otherPlayers = {}; // 存队友数据
-        var myLatLng = null;   // 存我的位置
+        var otherPlayers = {}; 
+        var myLatLng = null;   
         var myMarker = null;
 
         var client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
@@ -160,7 +159,6 @@
             client.subscribe(topic);
         });
 
-        // 收到消息
         client.on('message', function (topic, message) {
             try {
                 var data = JSON.parse(message.toString());
@@ -168,8 +166,8 @@
 
                 var now = Date.now();
 
-                // 新增或更新玩家
                 if (!otherPlayers[data.id]) {
+                    // 别人的点
                     var newMarker = L.circleMarker([data.lat, data.lng], {
                         color: '#ff0000', fillColor: '#f03', fillOpacity: 0.8, radius: 10
                     }).addTo(map).bindPopup("🚩 " + data.id);
@@ -182,16 +180,15 @@
                     otherPlayers[data.id].lng = data.lng;
                 }
                 
-                // 每次收到消息，都刷新一下列表
                 updatePlayerList();
                 
             } catch (e) {}
         });
 
-        // --- 3. 核心功能：刷新列表 & 距离计算 ---
+        // --- 3. 列表刷新 & 距离计算 ---
         function updatePlayerList() {
             var container = document.getElementById('player-list-container');
-            container.innerHTML = ""; // 清空当前列表
+            container.innerHTML = ""; 
 
             var hasPlayers = false;
 
@@ -199,10 +196,9 @@
                 hasPlayers = true;
                 var p = otherPlayers[id];
                 
-                // 计算距离 (如果我有位置的话)
-                var distText = "未知距离";
+                var distText = "计算中...";
                 if (myLatLng) {
-                    var d = map.distance(myLatLng, [p.lat, p.lng]); // Leaflet 自带测距 (米)
+                    var d = map.distance(myLatLng, [p.lat, p.lng]); 
                     if (d > 1000) {
                         distText = (d / 1000).toFixed(1) + " km";
                     } else {
@@ -210,7 +206,6 @@
                     }
                 }
 
-                // 创建列表项 HTML
                 var item = document.createElement('div');
                 item.className = 'player-item';
                 item.innerHTML = `
@@ -218,11 +213,10 @@
                     <div class="player-dist">${distText}</div>
                 `;
                 
-                // ！！！点击列表跳转功能！！！
-                // 使用闭包保存当前的经纬度
+                // 点击跳转
                 (function(targetLat, targetLng) {
                     item.onclick = function() {
-                        map.flyTo([targetLat, targetLng], 18, { duration: 1.5 }); // 飞过去！
+                        map.flyTo([targetLat, targetLng], 18, { duration: 1.5 });
                     };
                 })(p.lat, p.lng);
 
@@ -234,7 +228,7 @@
             }
         }
 
-        // --- 4. 幽灵清除 & 自动更新列表 ---
+        // --- 4. 幽灵清除 ---
         setInterval(function() {
             var now = Date.now();
             var listChanged = false;
@@ -257,7 +251,7 @@
         var isFirstLocate = true;
 
         map.on('locationfound', function(e) {
-            myLatLng = e.latlng; // 记录我的位置，用于算距离
+            myLatLng = e.latlng; 
 
             if (!myMarker) {
                 myMarker = L.circleMarker(e.latlng, {
