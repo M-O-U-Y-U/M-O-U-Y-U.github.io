@@ -29,7 +29,6 @@
         }
         .locate-btn:active { transform: scale(0.95); background: #f5f5f5; }
 
-        /* 面板样式 */
         .player-list-panel {
             position: absolute;
             top: 20px;
@@ -40,7 +39,7 @@
             padding: 15px;
             border-radius: 16px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            width: 220px; /* 稍微加宽一点 */
+            width: 220px;
             max-height: 50vh;
             overflow-y: auto;
             border: 1px solid rgba(255,255,255,0.5);
@@ -54,7 +53,6 @@
             padding-bottom: 8px;
         }
 
-        /* --- 个人设置区域 --- */
         .user-setting-row {
             display: flex;
             align-items: center;
@@ -63,7 +61,6 @@
         }
         .setting-label { font-size: 12px; color: #666; width: 30px; }
         
-        /* 头像输入框 */
         .avatar-input {
             width: 40px;
             text-align: center;
@@ -74,7 +71,6 @@
             background: #f9f9f9;
         }
         
-        /* 状态输入框 (新增) */
         .status-input {
             flex: 1;
             border: 1px solid #ddd;
@@ -87,7 +83,6 @@
             border-color: #3388ff; background: white; outline: none;
         }
 
-        /* 列表项样式 */
         .player-item {
             display: flex;
             justify-content: space-between;
@@ -106,7 +101,6 @@
         
         .my-status { font-size: 11px; color: #999; text-align: center; margin-top: 8px; border-top: 1px dashed #eee; padding-top: 5px;}
         
-        /* --- 地图图标样式 --- */
         .emoji-marker-icon {
             display: flex;
             justify-content: center;
@@ -121,7 +115,6 @@
         .my-icon-style { border-color: #3388ff; z-index: 1000 !important; }
         .other-icon-style { border-color: #ff4d4f; }
 
-        /* --- 气泡样式 (Leaflet Tooltip) --- */
         .status-bubble {
             background: white;
             border: none;
@@ -131,9 +124,8 @@
             font-size: 12px;
             font-weight: bold;
             color: #333;
-            margin-bottom: 5px; /* 往上提一点 */
+            margin-bottom: 5px;
         }
-        /* 去掉气泡默认的小箭头 */
         .leaflet-tooltip-bottom:before { display: none; }
 
         .leaflet-control-attribution { opacity: 0.5; font-size: 10px; }
@@ -152,7 +144,7 @@
             </div>
             <div class="user-setting-row">
                 <span class="setting-label">状态</span>
-                <input type="text" id="my-status-input" class="status-input" placeholder="输入状态(如:吃饭中)" maxlength="10">
+                <input type="text" id="my-status-input" class="status-input" placeholder="输入状态..." maxlength="10">
             </div>
         </div>
 
@@ -206,9 +198,12 @@
         var myLatLng = null;   
         var myMarker = null;
         
-        // 初始状态
+        // 我的轨迹数据
+        var myPathPoints = []; // 存坐标数组
+        var myPolyline = null; // 存线对象
+
         var myCurrentAvatar = "😼"; 
-        var myCurrentStatus = ""; // 默认为空
+        var myCurrentStatus = "";
 
         var client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
@@ -217,30 +212,24 @@
             client.subscribe(topic);
         });
 
-        // --- 监听输入 ---
-        
-        // 1. 头像改变
+        // 监听输入
         document.getElementById('my-avatar-input').addEventListener('input', function(e) {
             var val = e.target.value;
             if(val && val.trim() !== "") {
                 myCurrentAvatar = val;
-                updateMyMarkerVisuals(); // 刷新我的显示
-                manualLocate(); // 广播新数据
+                updateMyMarkerVisuals();
+                manualLocate();
             }
         });
 
-        // 2. 状态改变 (新增)
         document.getElementById('my-status-input').addEventListener('input', function(e) {
             myCurrentStatus = e.target.value;
-            updateMyMarkerVisuals(); // 刷新我的显示
-            manualLocate(); // 广播新数据
+            updateMyMarkerVisuals(); 
+            manualLocate(); 
         });
 
-        // 更新我自己的 Marker 图标和气泡
         function updateMyMarkerVisuals() {
             if(!myMarker) return;
-            
-            // 更新图标
             var newIcon = L.divIcon({
                 className: 'emoji-marker-icon my-icon-style',
                 html: myCurrentAvatar,
@@ -249,20 +238,16 @@
             });
             myMarker.setIcon(newIcon);
 
-            // 更新气泡状态
             if (myCurrentStatus && myCurrentStatus.trim() !== "") {
                 if (!myMarker.getTooltip()) {
                     myMarker.bindTooltip(myCurrentStatus, { 
-                        permanent: true, 
-                        direction: 'top', 
-                        offset: [0, -22],
-                        className: 'status-bubble' 
+                        permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' 
                     });
                 } else {
                     myMarker.setTooltipContent(myCurrentStatus);
                 }
             } else {
-                myMarker.unbindTooltip(); // 如果清空了状态，就移除气泡
+                myMarker.unbindTooltip(); 
             }
         }
 
@@ -274,7 +259,7 @@
 
                 var now = Date.now();
                 var pAvatar = data.avatar || "📍";
-                var pStatus = data.status || ""; // 获取对方状态
+                var pStatus = data.status || "";
 
                 if (!otherPlayers[data.id]) {
                     // --- 新玩家 ---
@@ -287,21 +272,26 @@
 
                     var newMarker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
                     
-                    // 如果有状态，加上气泡
                     if(pStatus) {
                         newMarker.bindTooltip(pStatus, { 
-                            permanent: true, 
-                            direction: 'top', 
-                            offset: [0, -22],
-                            className: 'status-bubble' 
+                            permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' 
                         });
                     }
-                    
-                    // 点击显示 ID
                     newMarker.bindPopup("🚩 " + data.id);
+
+                    // 创建轨迹线 (红色)
+                    var newPolyline = L.polyline([], {
+                        color: '#ff4d4f', // 别人的线是红色
+                        weight: 3,
+                        opacity: 0.7,
+                        dashArray: '5, 10' // 虚线效果，更有科技感
+                    }).addTo(map);
+                    // 加上第一个点
+                    newPolyline.addLatLng([data.lat, data.lng]);
 
                     otherPlayers[data.id] = { 
                         marker: newMarker, 
+                        polyline: newPolyline, // 存线对象
                         lastSeen: now, 
                         lat: data.lat, 
                         lng: data.lng,
@@ -311,12 +301,18 @@
                 } else {
                     // --- 老玩家更新 ---
                     var p = otherPlayers[data.id];
+                    
+                    // 1. 移动 Marker
                     p.marker.setLatLng([data.lat, data.lng]);
+                    
+                    // 2. 绘制轨迹：把新坐标加进线里
+                    p.polyline.addLatLng([data.lat, data.lng]);
+
                     p.lastSeen = now;
                     p.lat = data.lat;
                     p.lng = data.lng;
 
-                    // 1. 检查头像变没变
+                    // 更新样式 (头像、状态)
                     if (p.avatar !== pAvatar) {
                         var newIcon = L.divIcon({
                             className: 'emoji-marker-icon other-icon-style',
@@ -327,8 +323,6 @@
                         p.marker.setIcon(newIcon);
                         p.avatar = pAvatar;
                     }
-
-                    // 2. 检查状态变没变
                     if (p.status !== pStatus) {
                         p.status = pStatus;
                         if (pStatus) {
@@ -367,7 +361,6 @@
                     else distText = Math.round(d) + "m";
                 }
 
-                // 状态文本
                 var statusHtml = p.status ? `<div class="player-status-text">💬 ${p.status}</div>` : '';
 
                 var item = document.createElement('div');
@@ -402,7 +395,12 @@
             var listChanged = false;
             for (var id in otherPlayers) {
                 if (now - otherPlayers[id].lastSeen > 10000) {
+                    // 移除 Marker
                     map.removeLayer(otherPlayers[id].marker);
+                    // 【重要】移除轨迹线
+                    if(otherPlayers[id].polyline) {
+                        map.removeLayer(otherPlayers[id].polyline);
+                    }
                     delete otherPlayers[id];
                     listChanged = true;
                 }
@@ -419,7 +417,16 @@
         map.on('locationfound', function(e) {
             myLatLng = e.latlng; 
 
-            // 第一次创建自己
+            // 处理我的轨迹 (蓝色)
+            if (!myPolyline) {
+                myPolyline = L.polyline([], {
+                    color: '#3388ff', // 我是蓝色
+                    weight: 4,
+                    opacity: 0.8
+                }).addTo(map);
+            }
+            myPolyline.addLatLng(e.latlng); // 加点画线
+
             if (!myMarker) {
                 var myIcon = L.divIcon({
                     className: 'emoji-marker-icon my-icon-style',
@@ -432,7 +439,6 @@
                     .addTo(map)
                     .bindPopup("<b>我</b>").openPopup();
                 
-                // 如果一开始就有状态(虽然不太可能)，也加上
                 if(myCurrentStatus) updateMyMarkerVisuals();
             } else {
                 myMarker.setLatLng(e.latlng);
@@ -443,13 +449,12 @@
                 isFirstLocate = false;
             }
 
-            // 广播包含状态的数据
             var myData = { 
                 id: myId, 
                 lat: e.latlng.lat, 
                 lng: e.latlng.lng,
                 avatar: myCurrentAvatar,
-                status: myCurrentStatus // 发送状态
+                status: myCurrentStatus 
             };
             client.publish(topic, JSON.stringify(myData));
         });
