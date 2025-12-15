@@ -3,58 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M-O-U-Y-U 的主页</title>
+    <title>我的中国旅行攻略图</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            height: 100vh;
+        /* 让网页不仅占满全屏，还要去掉默认边距 */
+        body { margin: 0; padding: 0; }
+        
+        /* 地图容器必须有高度，否则看不见 */
+        #map { height: 100vh; width: 100%; }
+
+        /* 自定义弹窗样式，让攻略看起来更好看 */
+        .popup-content h3 {
+            margin: 0 0 5px 0;
+            color: #d35400; /* 标题颜色 */
+        }
+        .popup-content p {
             margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: #333;
+            font-size: 14px;
+            color: #555;
         }
-        .card {
-            background: white;
-            padding: 2rem;
-            border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
-        .avatar {
-            width: 100px;
-            height: 100px;
-            background-color: #ddd;
-            border-radius: 50%;
-            margin: 0 auto 15px;
-            line-height: 100px;
-            font-size: 40px;
-        }
-        h1 { margin: 0; color: #333; }
-        p { color: #666; margin-top: 10px; }
-        .btn {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 20px;
-            background-color: #764ba2;
-            color: white;
-            text-decoration: none;
-            border-radius: 50px;
-            transition: 0.3s;
-        }
-        .btn:hover { background-color: #5a367e; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <div class="avatar">👨‍💻</div>
-        <h1>你好，我是 M-O-U-Y-U</h1>
-        <p>这是我的第一个云端个人主页！</p>
-        <p>正在学习全栈开发中...</p>
-        <a href="#" class="btn">联系我</a>
-    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // 1. 初始化地图
+        // [35.0, 105.0] 是中国大致的中心坐标，zoom: 4 是缩放级别（数字越小看的越广）
+        var map = L.map('map').setView([35.8617, 104.1954], 4);
+
+        // 2. 添加底图 (这里用的是 OpenStreetMap 的免费图层)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // --- 下面是添加攻略数据的地方 ---
+
+        // 数据点 1: 北京
+        var marker1 = L.marker([39.9042, 116.4074]).addTo(map);
+        marker1.bindPopup(`
+            <div class="popup-content">
+                <h3>🇨🇳 北京·天安门</h3>
+                <p><b>攻略：</b>看升旗需要提前预约！建议住在前门附近，早上步行过去。</p>
+                <p><b>推荐美食：</b>四季民福烤鸭。</p>
+            </div>
+        `);
+
+        // 数据点 2: 西安 (你可以试着修改这里)
+        var marker2 = L.marker([34.2655, 108.9543]).addTo(map);
+        marker2.bindPopup(`
+            <div class="popup-content">
+                <h3>🍜 西安·钟楼</h3>
+                <p><b>攻略：</b>晚上开灯后超级好看！回民街就在旁边。</p>
+            </div>
+        `);
+
+    </script>
 </body>
 </html>
