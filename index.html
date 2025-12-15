@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>我的实时联机地图</title>
+    <title>我的全息联机地图 (混合模式)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -42,7 +42,7 @@
             padding: 5px 15px;
             border-radius: 20px;
             font-size: 12px;
-            pointer-events: none; /* 让点击穿透，不挡地图 */
+            pointer-events: none;
         }
     </style>
 </head>
@@ -59,24 +59,32 @@
 
     <script>
         // --- 第一步：初始化地图 ---
-        var map = L.map('map').setView([35.8617, 104.1954], 4); // 默认看中国
+        var map = L.map('map').setView([35.8617, 104.1954], 4); 
 
-        // 加载高清卫星底图
+        // 🏆 核心修改：三层叠加法 (Satellite + Roads + Labels)
+        
+        // 第 1 层：底层卫星影像 (Base)
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri',
             maxZoom: 19
         }).addTo(map);
 
-        // --- 第二步：联机配置 ---
-        
-        // 1. 生成随机身份 ID
+        // 第 2 层：道路线条 (透明叠加层) - 这一层负责画线
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19
+        }).addTo(map);
+
+        // 第 3 层：地名注记 (透明叠加层) - 这一层负责写字
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19
+        }).addTo(map);
+
+
+        // --- 第二步：联机配置 (保持不变) ---
         var myId = "Player_" + Math.floor(Math.random() * 8888);
         document.getElementById('status').innerText = "我是: " + myId;
 
-        // 2. 定义房间暗号 (为了避免冲突，建议保留这个长一点的名字)
         var topic = 'mouyu/live/game'; 
-
-        // 3. 存储其他玩家的信息，格式: { id: { marker: Marker对象, lastSeen: 时间戳 } }
         var otherPlayers = {}; 
         var myMarker = null;
 
@@ -85,70 +93,49 @@
 
         client.on('connect', function () {
             console.log('✅ 已连接到服务器');
-            client.subscribe(topic); // 进房间
-            // 提示连接成功
+            client.subscribe(topic);
             L.popup().setLatLng(map.getCenter())
                 .setContent("<b>网络已连接！</b><br>正在等待 GPS...")
                 .openOn(map);
         });
 
-        // --- 第四步：处理收到的消息 (显示别人 + 记录时间) ---
+        // --- 第四步：处理消息 ---
         client.on('message', function (topic, message) {
             try {
                 var data = JSON.parse(message.toString());
-
-                // 如果是自己发的消息，忽略
                 if (data.id === myId) return;
 
                 var now = Date.now();
 
-                // 如果是新玩家
                 if (!otherPlayers[data.id]) {
                     var newMarker = L.circleMarker([data.lat, data.lng], {
-                        color: '#ff0000',      // 红色边框
-                        fillColor: '#f03',     // 红色填充
-                        fillOpacity: 0.8,
-                        radius: 10
+                        color: '#ff0000', fillColor: '#f03', fillOpacity: 0.8, radius: 10
                     }).addTo(map).bindPopup("🚩 队友: " + data.id);
                     
-                    // 【关键】记录它是谁，以及“最后一次看见它的时间”
-                    otherPlayers[data.id] = {
-                        marker: newMarker,
-                        lastSeen: now
-                    };
+                    otherPlayers[data.id] = { marker: newMarker, lastSeen: now };
                 } else {
-                    // 老玩家：更新位置，并刷新“最后在线时间”
                     otherPlayers[data.id].marker.setLatLng([data.lat, data.lng]);
                     otherPlayers[data.id].lastSeen = now;
                 }
-            } catch (e) {
-                console.error("数据解析错误", e);
-            }
+            } catch (e) { console.error(e); }
         });
 
-        // --- 第五步：幽灵清除器 (每 2 秒检查一次) ---
+        // --- 第五步：幽灵清除器 ---
         setInterval(function() {
             var now = Date.now();
-            // 遍历所有已知的玩家
             for (var id in otherPlayers) {
                 var player = otherPlayers[id];
-                // 如果这个玩家超过 10秒 (10000毫秒) 没发消息
                 if (now - player.lastSeen > 10000) {
-                    console.log("👻 玩家离开，清除:", id);
-                    // 1. 从地图上删掉圆点
                     map.removeLayer(player.marker);
-                    // 2. 从内存里删掉记录
                     delete otherPlayers[id];
                 }
             }
-        }, 2000); // 定时器：每2秒运行一次
+        }, 2000);
 
-        // --- 第六步：定位并发送我的位置 ---
-        
+        // --- 第六步：定位与发送 ---
         function locateAndShare() {
-            // 使用之前调试成功的参数：30秒超时 + 高精度
             map.locate({
-                setView: false, // 防止每次更新视角乱跳
+                setView: false,
                 maxZoom: 17,
                 timeout: 30000, 
                 enableHighAccuracy: true,
@@ -156,55 +143,38 @@
             });
         }
 
-        // 首次定位标志
         var isFirstLocate = true;
 
         map.on('locationfound', function(e) {
-            // 1. 在地图上画蓝色的自己
             if (!myMarker) {
                 myMarker = L.circleMarker(e.latlng, {
-                    color: '#3388ff',      // 蓝色边框
-                    fillColor: '#3388ff',  // 蓝色填充
-                    fillOpacity: 0.8,
-                    radius: 12
+                    color: '#3388ff', fillColor: '#3388ff', fillOpacity: 0.8, radius: 12
                 }).addTo(map).bindPopup("<b>🔵 我在这里</b>").openPopup();
             } else {
                 myMarker.setLatLng(e.latlng);
             }
 
-            // 如果是第一次定位成功，把地图视角移过去
             if (isFirstLocate) {
                 map.setView(e.latlng, 17);
                 isFirstLocate = false;
                 document.getElementById('status').innerText = "🟢 在线 | ID: " + myId;
             }
 
-            // 2. 把坐标广播给别人
-            var myData = {
-                id: myId,
-                lat: e.latlng.lat,
-                lng: e.latlng.lng
-            };
+            var myData = { id: myId, lat: e.latlng.lat, lng: e.latlng.lng };
             client.publish(topic, JSON.stringify(myData));
-            console.log("位置已发送", myData);
         });
 
         map.on('locationerror', function(e) {
             console.log("定位中...", e.message);
         });
 
-        // 按钮点击手动定位
         function manualLocate() {
-            isFirstLocate = true; // 允许再次跳转视角
+            isFirstLocate = true; 
             locateAndShare();
             alert("正在刷新位置，请稍候...");
         }
 
-        // --- 第七步：启动循环 ---
-        // 立即执行一次
         locateAndShare();
-        
-        // 每 3 秒自动更新一次位置
         setInterval(locateAndShare, 3000);
 
     </script>
