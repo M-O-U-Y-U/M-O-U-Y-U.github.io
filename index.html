@@ -11,7 +11,6 @@
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         #map { height: 100vh; width: 100%; }
         
-        /* 重新定位按钮 */
         .locate-btn {
             position: absolute;
             bottom: 40px;
@@ -41,7 +40,7 @@
             padding: 15px;
             border-radius: 16px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            width: 200px; /* 稍微宽一点容纳输入框 */
+            width: 220px; /* 稍微加宽一点 */
             max-height: 50vh;
             overflow-y: auto;
             border: 1px solid rgba(255,255,255,0.5);
@@ -55,27 +54,38 @@
             padding-bottom: 8px;
         }
 
-        /* --- 新增：头像设置区域 --- */
-        .avatar-setting {
+        /* --- 个人设置区域 --- */
+        .user-setting-row {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px dashed #eee;
+            gap: 8px;
+            margin-bottom: 8px;
         }
-        .avatar-label { font-size: 12px; color: #666; }
+        .setting-label { font-size: 12px; color: #666; width: 30px; }
+        
+        /* 头像输入框 */
         .avatar-input {
             width: 40px;
             text-align: center;
             border: 1px solid #ddd;
             border-radius: 8px;
             padding: 5px;
-            font-size: 20px;
-            outline: none;
+            font-size: 18px;
             background: #f9f9f9;
         }
-        .avatar-input:focus { border-color: #3388ff; background: white; }
+        
+        /* 状态输入框 (新增) */
+        .status-input {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 6px;
+            font-size: 12px;
+            background: #f9f9f9;
+        }
+        .status-input:focus, .avatar-input:focus {
+            border-color: #3388ff; background: white; outline: none;
+        }
 
         /* 列表项样式 */
         .player-item {
@@ -89,17 +99,14 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .player-item:hover {
-            background: #eef4ff;
-            transform: translateY(-1px);
-        }
-        .player-info { display: flex; align-items: center; gap: 8px; }
-        .player-avatar-small { font-size: 16px; }
-        .player-name { font-size: 13px; color: #333; font-weight: 600; }
+        .player-info { display: flex; flex-direction: column; }
+        .player-head { display: flex; align-items: center; gap: 5px; font-weight: 600; font-size: 13px; color: #333; }
+        .player-status-text { font-size: 11px; color: #666; margin-top: 2px; }
         .player-dist { font-size: 11px; color: #888; }
-        .my-status { font-size: 11px; color: #999; text-align: center; margin-top: 8px; }
         
-        /* --- 新增：地图上的 Emoji 图标样式 --- */
+        .my-status { font-size: 11px; color: #999; text-align: center; margin-top: 8px; border-top: 1px dashed #eee; padding-top: 5px;}
+        
+        /* --- 地图图标样式 --- */
         .emoji-marker-icon {
             display: flex;
             justify-content: center;
@@ -108,12 +115,26 @@
             border-radius: 50%;
             box-shadow: 0 3px 8px rgba(0,0,0,0.3);
             border: 2px solid white;
-            font-size: 24px; /* 图标大小 */
+            font-size: 24px; 
             transition: all 0.3s ease;
         }
-        /* 自己的头像加个蓝框，别人的加红框 */
         .my-icon-style { border-color: #3388ff; z-index: 1000 !important; }
         .other-icon-style { border-color: #ff4d4f; }
+
+        /* --- 气泡样式 (Leaflet Tooltip) --- */
+        .status-bubble {
+            background: white;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px; /* 往上提一点 */
+        }
+        /* 去掉气泡默认的小箭头 */
+        .leaflet-tooltip-bottom:before { display: none; }
 
         .leaflet-control-attribution { opacity: 0.5; font-size: 10px; }
     </style>
@@ -123,9 +144,16 @@
     <div class="player-list-panel">
         <div class="panel-title">📡 MOUYU的共享地图</div>
         
-        <div class="avatar-setting">
-            <span class="avatar-label">我的形象:</span>
-            <input type="text" id="my-avatar-input" class="avatar-input" value="😼" maxlength="2">
+        <div style="padding-bottom: 10px; border-bottom: 1px dashed #eee; margin-bottom: 10px;">
+            <div class="user-setting-row">
+                <span class="setting-label">形象</span>
+                <input type="text" id="my-avatar-input" class="avatar-input" value="😼" maxlength="2">
+                <span style="font-size:11px; color:#999;">(输入Emoji)</span>
+            </div>
+            <div class="user-setting-row">
+                <span class="setting-label">状态</span>
+                <input type="text" id="my-status-input" class="status-input" placeholder="输入状态(如:吃饭中)" maxlength="10">
+            </div>
         </div>
 
         <div id="player-list-container">
@@ -177,7 +205,10 @@
         var otherPlayers = {}; 
         var myLatLng = null;   
         var myMarker = null;
-        var myCurrentAvatar = "😼"; // 默认头像
+        
+        // 初始状态
+        var myCurrentAvatar = "😼"; 
+        var myCurrentStatus = ""; // 默认为空
 
         var client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
@@ -186,72 +217,131 @@
             client.subscribe(topic);
         });
 
-        // 监听头像输入框的变化
+        // --- 监听输入 ---
+        
+        // 1. 头像改变
         document.getElementById('my-avatar-input').addEventListener('input', function(e) {
             var val = e.target.value;
             if(val && val.trim() !== "") {
                 myCurrentAvatar = val;
-                // 如果我已经有标记了，立即更新自己的长相
-                if(myMarker) {
-                    var newIcon = L.divIcon({
-                        className: 'emoji-marker-icon my-icon-style',
-                        html: myCurrentAvatar,
-                        iconSize: [40, 40],
-                        iconAnchor: [20, 20]
-                    });
-                    myMarker.setIcon(newIcon);
-                }
-                // 立即广播一次新形象
-                manualLocate();
+                updateMyMarkerVisuals(); // 刷新我的显示
+                manualLocate(); // 广播新数据
             }
         });
 
+        // 2. 状态改变 (新增)
+        document.getElementById('my-status-input').addEventListener('input', function(e) {
+            myCurrentStatus = e.target.value;
+            updateMyMarkerVisuals(); // 刷新我的显示
+            manualLocate(); // 广播新数据
+        });
+
+        // 更新我自己的 Marker 图标和气泡
+        function updateMyMarkerVisuals() {
+            if(!myMarker) return;
+            
+            // 更新图标
+            var newIcon = L.divIcon({
+                className: 'emoji-marker-icon my-icon-style',
+                html: myCurrentAvatar,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+            myMarker.setIcon(newIcon);
+
+            // 更新气泡状态
+            if (myCurrentStatus && myCurrentStatus.trim() !== "") {
+                if (!myMarker.getTooltip()) {
+                    myMarker.bindTooltip(myCurrentStatus, { 
+                        permanent: true, 
+                        direction: 'top', 
+                        offset: [0, -22],
+                        className: 'status-bubble' 
+                    });
+                } else {
+                    myMarker.setTooltipContent(myCurrentStatus);
+                }
+            } else {
+                myMarker.unbindTooltip(); // 如果清空了状态，就移除气泡
+            }
+        }
+
+        // --- 接收消息 ---
         client.on('message', function (topic, message) {
             try {
                 var data = JSON.parse(message.toString());
                 if (data.id === myId) return;
 
                 var now = Date.now();
-                var playerAvatar = data.avatar || "📍"; // 如果对方没发头像，就用默认针头
+                var pAvatar = data.avatar || "📍";
+                var pStatus = data.status || ""; // 获取对方状态
 
                 if (!otherPlayers[data.id]) {
-                    // --- 创建新玩家标记 (使用 DivIcon 显示 Emoji) ---
+                    // --- 新玩家 ---
                     var icon = L.divIcon({
                         className: 'emoji-marker-icon other-icon-style',
-                        html: playerAvatar,
+                        html: pAvatar,
                         iconSize: [40, 40],
-                        iconAnchor: [20, 20] // 中心对齐
+                        iconAnchor: [20, 20]
                     });
 
-                    var newMarker = L.marker([data.lat, data.lng], { icon: icon })
-                        .addTo(map)
-                        .bindPopup("🚩 " + data.id);
+                    var newMarker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
                     
+                    // 如果有状态，加上气泡
+                    if(pStatus) {
+                        newMarker.bindTooltip(pStatus, { 
+                            permanent: true, 
+                            direction: 'top', 
+                            offset: [0, -22],
+                            className: 'status-bubble' 
+                        });
+                    }
+                    
+                    // 点击显示 ID
+                    newMarker.bindPopup("🚩 " + data.id);
+
                     otherPlayers[data.id] = { 
                         marker: newMarker, 
                         lastSeen: now, 
                         lat: data.lat, 
                         lng: data.lng,
-                        avatar: playerAvatar
+                        avatar: pAvatar,
+                        status: pStatus
                     };
                 } else {
-                    // --- 更新老玩家 ---
+                    // --- 老玩家更新 ---
                     var p = otherPlayers[data.id];
                     p.marker.setLatLng([data.lat, data.lng]);
                     p.lastSeen = now;
                     p.lat = data.lat;
                     p.lng = data.lng;
 
-                    // 如果对方换了头像，更新图标
-                    if (p.avatar !== playerAvatar) {
+                    // 1. 检查头像变没变
+                    if (p.avatar !== pAvatar) {
                         var newIcon = L.divIcon({
                             className: 'emoji-marker-icon other-icon-style',
-                            html: playerAvatar,
+                            html: pAvatar,
                             iconSize: [40, 40],
                             iconAnchor: [20, 20]
                         });
                         p.marker.setIcon(newIcon);
-                        p.avatar = playerAvatar;
+                        p.avatar = pAvatar;
+                    }
+
+                    // 2. 检查状态变没变
+                    if (p.status !== pStatus) {
+                        p.status = pStatus;
+                        if (pStatus) {
+                            if (!p.marker.getTooltip()) {
+                                p.marker.bindTooltip(pStatus, { 
+                                    permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' 
+                                });
+                            } else {
+                                p.marker.setTooltipContent(pStatus);
+                            }
+                        } else {
+                            p.marker.unbindTooltip();
+                        }
                     }
                 }
                 
@@ -277,13 +367,18 @@
                     else distText = Math.round(d) + "m";
                 }
 
+                // 状态文本
+                var statusHtml = p.status ? `<div class="player-status-text">💬 ${p.status}</div>` : '';
+
                 var item = document.createElement('div');
                 item.className = 'player-item';
-                // 列表里也显示对方的头像
                 item.innerHTML = `
                     <div class="player-info">
-                        <span class="player-avatar-small">${p.avatar}</span>
-                        <span class="player-name">${id}</span>
+                        <div class="player-head">
+                            <span>${p.avatar}</span>
+                            <span>${id}</span>
+                        </div>
+                        ${statusHtml}
                     </div>
                     <div class="player-dist">${distText}</div>
                 `;
@@ -324,22 +419,23 @@
         map.on('locationfound', function(e) {
             myLatLng = e.latlng; 
 
-            // --- 创建或更新“我”的标记 ---
-            var myIcon = L.divIcon({
-                className: 'emoji-marker-icon my-icon-style',
-                html: myCurrentAvatar, // 使用当前输入框里的 Emoji
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
-            });
-
+            // 第一次创建自己
             if (!myMarker) {
+                var myIcon = L.divIcon({
+                    className: 'emoji-marker-icon my-icon-style',
+                    html: myCurrentAvatar,
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20]
+                });
+
                 myMarker = L.marker(e.latlng, { icon: myIcon })
                     .addTo(map)
-                    .bindPopup("<b>这是我</b>").openPopup();
+                    .bindPopup("<b>我</b>").openPopup();
+                
+                // 如果一开始就有状态(虽然不太可能)，也加上
+                if(myCurrentStatus) updateMyMarkerVisuals();
             } else {
                 myMarker.setLatLng(e.latlng);
-                // 确保我的图标也是最新的
-                // myMarker.setIcon(myIcon); // 性能优化：只有变了再改，这里暂不每次重置
             }
 
             if (isFirstLocate) {
@@ -347,12 +443,13 @@
                 isFirstLocate = false;
             }
 
-            // 发送数据时带上 avatar
+            // 广播包含状态的数据
             var myData = { 
                 id: myId, 
                 lat: e.latlng.lat, 
                 lng: e.latlng.lng,
-                avatar: myCurrentAvatar // 告诉别人我长啥样
+                avatar: myCurrentAvatar,
+                status: myCurrentStatus // 发送状态
             };
             client.publish(topic, JSON.stringify(myData));
         });
@@ -362,7 +459,7 @@
         function manualLocate() { isFirstLocate = true; locateAndShare(); alert("正在刷新位置..."); }
 
         locateAndShare();
-        setInterval(locateAndShare, 3000); // 3秒刷新一次
+        setInterval(locateAndShare, 3000);
 
     </script>
 </body>
