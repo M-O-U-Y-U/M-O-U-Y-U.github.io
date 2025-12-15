@@ -11,6 +11,7 @@
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         #map { height: 100vh; width: 100%; }
         
+        /* 重新定位按钮 */
         .locate-btn {
             position: absolute;
             bottom: 40px;
@@ -29,6 +30,7 @@
         }
         .locate-btn:active { transform: scale(0.95); background: #f5f5f5; }
 
+        /* 面板样式 */
         .player-list-panel {
             position: absolute;
             top: 20px;
@@ -39,8 +41,8 @@
             padding: 15px;
             border-radius: 16px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            width: 180px;
-            max-height: 40vh;
+            width: 200px; /* 稍微宽一点容纳输入框 */
+            max-height: 50vh;
             overflow-y: auto;
             border: 1px solid rgba(255,255,255,0.5);
         }
@@ -51,8 +53,31 @@
             color: #1a1a1a;
             border-bottom: 1px solid #eee;
             padding-bottom: 8px;
-            letter-spacing: 0.5px;
         }
+
+        /* --- 新增：头像设置区域 --- */
+        .avatar-setting {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #eee;
+        }
+        .avatar-label { font-size: 12px; color: #666; }
+        .avatar-input {
+            width: 40px;
+            text-align: center;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 5px;
+            font-size: 20px;
+            outline: none;
+            background: #f9f9f9;
+        }
+        .avatar-input:focus { border-color: #3388ff; background: white; }
+
+        /* 列表项样式 */
         .player-item {
             display: flex;
             justify-content: space-between;
@@ -63,17 +88,33 @@
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s;
-            border: 1px solid transparent;
         }
         .player-item:hover {
             background: #eef4ff;
-            border-color: #3388ff;
             transform: translateY(-1px);
         }
+        .player-info { display: flex; align-items: center; gap: 8px; }
+        .player-avatar-small { font-size: 16px; }
         .player-name { font-size: 13px; color: #333; font-weight: 600; }
         .player-dist { font-size: 11px; color: #888; }
         .my-status { font-size: 11px; color: #999; text-align: center; margin-top: 8px; }
         
+        /* --- 新增：地图上的 Emoji 图标样式 --- */
+        .emoji-marker-icon {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+            border: 2px solid white;
+            font-size: 24px; /* 图标大小 */
+            transition: all 0.3s ease;
+        }
+        /* 自己的头像加个蓝框，别人的加红框 */
+        .my-icon-style { border-color: #3388ff; z-index: 1000 !important; }
+        .other-icon-style { border-color: #ff4d4f; }
+
         .leaflet-control-attribution { opacity: 0.5; font-size: 10px; }
     </style>
 </head>
@@ -81,6 +122,12 @@
 
     <div class="player-list-panel">
         <div class="panel-title">📡 MOUYU的共享地图</div>
+        
+        <div class="avatar-setting">
+            <span class="avatar-label">我的形象:</span>
+            <input type="text" id="my-avatar-input" class="avatar-input" value="😼" maxlength="2">
+        </div>
+
         <div id="player-list-container">
             <div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">扫描中...</div>
         </div>
@@ -107,7 +154,6 @@
             maxZoom: 20
         });
 
-        // 默认显示卫星图
         var map = L.map('map', {
             center: [35.8617, 104.1954],
             zoom: 4,
@@ -131,6 +177,7 @@
         var otherPlayers = {}; 
         var myLatLng = null;   
         var myMarker = null;
+        var myCurrentAvatar = "😼"; // 默认头像
 
         var client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
@@ -139,29 +186,73 @@
             client.subscribe(topic);
         });
 
+        // 监听头像输入框的变化
+        document.getElementById('my-avatar-input').addEventListener('input', function(e) {
+            var val = e.target.value;
+            if(val && val.trim() !== "") {
+                myCurrentAvatar = val;
+                // 如果我已经有标记了，立即更新自己的长相
+                if(myMarker) {
+                    var newIcon = L.divIcon({
+                        className: 'emoji-marker-icon my-icon-style',
+                        html: myCurrentAvatar,
+                        iconSize: [40, 40],
+                        iconAnchor: [20, 20]
+                    });
+                    myMarker.setIcon(newIcon);
+                }
+                // 立即广播一次新形象
+                manualLocate();
+            }
+        });
+
         client.on('message', function (topic, message) {
             try {
                 var data = JSON.parse(message.toString());
                 if (data.id === myId) return;
 
                 var now = Date.now();
+                var playerAvatar = data.avatar || "📍"; // 如果对方没发头像，就用默认针头
 
                 if (!otherPlayers[data.id]) {
-                    var newMarker = L.circleMarker([data.lat, data.lng], {
-                        color: '#ff4d4f', 
-                        fillColor: '#ff4d4f', 
-                        fillOpacity: 0.9, 
-                        radius: 8,
-                        weight: 2,
-                        opacity: 1
-                    }).addTo(map).bindPopup("🚩 " + data.id);
+                    // --- 创建新玩家标记 (使用 DivIcon 显示 Emoji) ---
+                    var icon = L.divIcon({
+                        className: 'emoji-marker-icon other-icon-style',
+                        html: playerAvatar,
+                        iconSize: [40, 40],
+                        iconAnchor: [20, 20] // 中心对齐
+                    });
+
+                    var newMarker = L.marker([data.lat, data.lng], { icon: icon })
+                        .addTo(map)
+                        .bindPopup("🚩 " + data.id);
                     
-                    otherPlayers[data.id] = { marker: newMarker, lastSeen: now, lat: data.lat, lng: data.lng };
+                    otherPlayers[data.id] = { 
+                        marker: newMarker, 
+                        lastSeen: now, 
+                        lat: data.lat, 
+                        lng: data.lng,
+                        avatar: playerAvatar
+                    };
                 } else {
-                    otherPlayers[data.id].marker.setLatLng([data.lat, data.lng]);
-                    otherPlayers[data.id].lastSeen = now;
-                    otherPlayers[data.id].lat = data.lat;
-                    otherPlayers[data.id].lng = data.lng;
+                    // --- 更新老玩家 ---
+                    var p = otherPlayers[data.id];
+                    p.marker.setLatLng([data.lat, data.lng]);
+                    p.lastSeen = now;
+                    p.lat = data.lat;
+                    p.lng = data.lng;
+
+                    // 如果对方换了头像，更新图标
+                    if (p.avatar !== playerAvatar) {
+                        var newIcon = L.divIcon({
+                            className: 'emoji-marker-icon other-icon-style',
+                            html: playerAvatar,
+                            iconSize: [40, 40],
+                            iconAnchor: [20, 20]
+                        });
+                        p.marker.setIcon(newIcon);
+                        p.avatar = playerAvatar;
+                    }
                 }
                 
                 updatePlayerList();
@@ -188,8 +279,12 @@
 
                 var item = document.createElement('div');
                 item.className = 'player-item';
+                // 列表里也显示对方的头像
                 item.innerHTML = `
-                    <div class="player-name">🟢 ${id}</div>
+                    <div class="player-info">
+                        <span class="player-avatar-small">${p.avatar}</span>
+                        <span class="player-name">${id}</span>
+                    </div>
                     <div class="player-dist">${distText}</div>
                 `;
                 
@@ -229,17 +324,22 @@
         map.on('locationfound', function(e) {
             myLatLng = e.latlng; 
 
+            // --- 创建或更新“我”的标记 ---
+            var myIcon = L.divIcon({
+                className: 'emoji-marker-icon my-icon-style',
+                html: myCurrentAvatar, // 使用当前输入框里的 Emoji
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+
             if (!myMarker) {
-                myMarker = L.circleMarker(e.latlng, {
-                    color: '#1890ff', 
-                    fillColor: '#1890ff', 
-                    fillOpacity: 1, 
-                    radius: 10,
-                    weight: 3,
-                    opacity: 0.5
-                }).addTo(map).bindPopup("<b>我在这里</b>").openPopup();
+                myMarker = L.marker(e.latlng, { icon: myIcon })
+                    .addTo(map)
+                    .bindPopup("<b>这是我</b>").openPopup();
             } else {
                 myMarker.setLatLng(e.latlng);
+                // 确保我的图标也是最新的
+                // myMarker.setIcon(myIcon); // 性能优化：只有变了再改，这里暂不每次重置
             }
 
             if (isFirstLocate) {
@@ -247,16 +347,22 @@
                 isFirstLocate = false;
             }
 
-            var myData = { id: myId, lat: e.latlng.lat, lng: e.latlng.lng };
+            // 发送数据时带上 avatar
+            var myData = { 
+                id: myId, 
+                lat: e.latlng.lat, 
+                lng: e.latlng.lng,
+                avatar: myCurrentAvatar // 告诉别人我长啥样
+            };
             client.publish(topic, JSON.stringify(myData));
         });
         
         map.on('locationerror', function(e) { console.log("定位中..."); });
 
-        function manualLocate() { isFirstLocate = true; locateAndShare(); alert("正在刷新 GPS..."); }
+        function manualLocate() { isFirstLocate = true; locateAndShare(); alert("正在刷新位置..."); }
 
         locateAndShare();
-        setInterval(locateAndShare, 3000);
+        setInterval(locateAndShare, 3000); // 3秒刷新一次
 
     </script>
 </body>
