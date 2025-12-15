@@ -2,67 +2,97 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的中国旅行攻略图</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>我的全息旅行地图</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        /* 让网页不仅占满全屏，还要去掉默认边距 */
         body { margin: 0; padding: 0; }
-        
-        /* 地图容器必须有高度，否则看不见 */
         #map { height: 100vh; width: 100%; }
-
-        /* 自定义弹窗样式，让攻略看起来更好看 */
-        .popup-content h3 {
-            margin: 0 0 5px 0;
-            color: #d35400; /* 标题颜色 */
-        }
-        .popup-content p {
-            margin: 0;
-            font-size: 14px;
-            color: #555;
+        
+        /* 定位按钮的样式 */
+        .locate-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            cursor: pointer;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
+    
+    <button class="locate-btn" onclick="locateUser()">📍 回到我的位置</button>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
         // 1. 初始化地图
-        // [35.0, 105.0] 是中国大致的中心坐标，zoom: 4 是缩放级别（数字越小看的越广）
+        // 默认先看中国全貌，如果定位成功会自动跳转
         var map = L.map('map').setView([35.8617, 104.1954], 4);
 
-        // 2. 添加底图 (这里用的是 OpenStreetMap 的免费图层)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        // 2. 更换底图：使用 Esri World Imagery (高清卫星影像)
+        // 这对于遥感专业的你来说应该很亲切
+        var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+            maxZoom: 19
+        });
+        
+        // 如果觉得卫星图太花，想看路网，可以把下面这行取消注释，把上面那行注释掉
+        // var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
 
-        // --- 下面是添加攻略数据的地方 ---
+        satelliteLayer.addTo(map);
 
-        // 数据点 1: 北京
+        // --- 核心功能：获取真实位置 ---
+        
+        function locateUser() {
+            // map.locate 是 Leaflet 自带的定位功能
+            // setView: true 表示找到位置后自动把地图中心移过去
+            // maxZoom: 16 表示找到后缩放到街道级别
+            map.locate({setView: true, maxZoom: 16});
+        }
+
+        // 监听：如果找到位置了，要做什么？
+        function onLocationFound(e) {
+            var radius = e.accuracy / 2; // 获取定位精度范围
+
+            // 在当前位置画一个蓝色的圆点
+            L.circleMarker(e.latlng, {
+                radius: 8,
+                fillColor: "#3388ff",
+                color: "#fff",
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map)
+            .bindPopup("你现在就在这里！<br>精度范围: " + radius + "米").openPopup();
+
+            // 画一个半透明的大圆圈表示精度范围
+            L.circle(e.latlng, radius).addTo(map);
+        }
+
+        // 监听：如果定位失败了（比如用户拒绝权限），要做什么？
+        function onLocationError(e) {
+            alert("无法获取您的位置，请检查浏览器权限。\n错误信息: " + e.message);
+        }
+
+        map.on('locationfound', onLocationFound);
+        map.on('locationerror', onLocationError);
+
+        // 3. 页面一加载，自动开始定位
+        locateUser();
+
+        // --- 之前的攻略数据保留 ---
         var marker1 = L.marker([39.9042, 116.4074]).addTo(map);
-        marker1.bindPopup(`
-            <div class="popup-content">
-                <h3>🇨🇳 北京·天安门</h3>
-                <p><b>攻略：</b>看升旗需要提前预约！建议住在前门附近，早上步行过去。</p>
-                <p><b>推荐美食：</b>四季民福烤鸭。</p>
-            </div>
-        `);
-
-        // 数据点 2: 西安 (你可以试着修改这里)
-        var marker2 = L.marker([34.2655, 108.9543]).addTo(map);
-        marker2.bindPopup(`
-            <div class="popup-content">
-                <h3>🍜 西安·钟楼</h3>
-                <p><b>攻略：</b>晚上开灯后超级好看！回民街就在旁边。</p>
-            </div>
-        `);
+        marker1.bindPopup("<b>🇨🇳 北京·天安门</b><br>遥感坐标: 39.90, 116.40");
 
     </script>
 </body>
