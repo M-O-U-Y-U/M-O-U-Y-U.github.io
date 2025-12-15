@@ -11,18 +11,24 @@
         body { margin: 0; padding: 0; }
         #map { height: 100vh; width: 100%; }
         
-        /* 定位按钮的样式 */
+        /* 定位按钮样式 */
         .locate-btn {
             position: absolute;
-            bottom: 20px;
+            bottom: 30px; /* 稍微往上提一点，避开手机底部横条 */
             right: 20px;
             z-index: 1000;
             background: white;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            cursor: pointer;
+            padding: 12px 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border: none;
+            font-size: 16px;
             font-weight: bold;
+            color: #333;
+            cursor: pointer;
+        }
+        .locate-btn:active {
+            background: #f0f0f0;
         }
     </style>
 </head>
@@ -30,69 +36,82 @@
 
     <div id="map"></div>
     
-    <button class="locate-btn" onclick="locateUser()">📍 回到我的位置</button>
+    <button class="locate-btn" onclick="locateUser()">📍 寻找我的位置</button>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        // 1. 初始化地图
-        // 默认先看中国全貌，如果定位成功会自动跳转
+        // 1. 初始化地图 (默认显示中国全景)
         var map = L.map('map').setView([35.8617, 104.1954], 4);
 
-        // 2. 更换底图：使用 Esri World Imagery (高清卫星影像)
-        // 这对于遥感专业的你来说应该很亲切
+        // 2. 加载 Esri 高清卫星影像
         var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+            attribution: 'Tiles &copy; Esri',
             maxZoom: 19
         });
-        
-        // 如果觉得卫星图太花，想看路网，可以把下面这行取消注释，把上面那行注释掉
-        // var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
-
         satelliteLayer.addTo(map);
 
-        // --- 核心功能：获取真实位置 ---
+        // --- 核心修改：定位功能 ---
         
         function locateUser() {
-            // map.locate 是 Leaflet 自带的定位功能
-            // setView: true 表示找到位置后自动把地图中心移过去
-            // maxZoom: 16 表示找到后缩放到街道级别
-            map.locate({setView: true, maxZoom: 16});
+            console.log("正在尝试定位...");
+            
+            map.locate({
+                setView: true,           // 找到位置后自动跳转
+                maxZoom: 16,             // 跳转后的缩放级别
+                timeout: 30000,          // 【关键修改】等待时间延长到 30秒
+                maximumAge: 0,           // 【关键修改】强制获取最新位置，不使用缓存
+                enableHighAccuracy: true // 【关键修改】开启高精度模式 (尝试调用 GPS 硬件)
+            });
         }
 
-        // 监听：如果找到位置了，要做什么？
+        // 成功时的回调
         function onLocationFound(e) {
-            var radius = e.accuracy / 2; // 获取定位精度范围
+            var radius = e.accuracy / 2;
 
-            // 在当前位置画一个蓝色的圆点
+            // 清除地图上已有的旧定位点 (可选优化，防止地图上全是蓝点)
+            map.eachLayer(function (layer) {
+                if (layer.options.id === 'userLocation') {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // 添加新定位点
             L.circleMarker(e.latlng, {
-                radius: 8,
+                radius: 10,
                 fillColor: "#3388ff",
                 color: "#fff",
-                weight: 2,
+                weight: 3,
                 opacity: 1,
-                fillOpacity: 0.8
+                fillOpacity: 0.8,
+                id: 'userLocation' // 给它个标记，方便以后删除
             }).addTo(map)
-            .bindPopup("你现在就在这里！<br>精度范围: " + radius + "米").openPopup();
+            .bindPopup("<b>你在这里！</b><br>精度: " + Math.round(radius) + "米").openPopup();
 
-            // 画一个半透明的大圆圈表示精度范围
-            L.circle(e.latlng, radius).addTo(map);
+            // 画精度圈
+            L.circle(e.latlng, {
+                radius: radius,
+                id: 'userLocation'
+            }).addTo(map);
         }
 
-        // 监听：如果定位失败了（比如用户拒绝权限），要做什么？
+        // 失败时的回调
         function onLocationError(e) {
-            alert("无法获取您的位置，请检查浏览器权限。\n错误信息: " + e.message);
+            // 如果 30秒后还是失败，才弹窗提示
+            alert("定位超时或失败，请检查手机 GPS 是否开启。\n(建议在户外或窗边尝试)");
+            console.log(e.message);
         }
 
+        // 绑定监听器
         map.on('locationfound', onLocationFound);
         map.on('locationerror', onLocationError);
 
-        // 3. 页面一加载，自动开始定位
+        // 3. 页面加载完成后，自动开始定位
         locateUser();
 
-        // --- 之前的攻略数据保留 ---
-        var marker1 = L.marker([39.9042, 116.4074]).addTo(map);
-        marker1.bindPopup("<b>🇨🇳 北京·天安门</b><br>遥感坐标: 39.90, 116.40");
+        // --- 之前的数据点保留 ---
+        L.marker([39.9042, 116.4074]).addTo(map)
+            .bindPopup("<b>🇨🇳 北京·天安门</b>");
 
     </script>
 </body>
