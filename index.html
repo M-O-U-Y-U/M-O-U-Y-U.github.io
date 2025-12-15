@@ -115,6 +115,17 @@
         .my-icon-style { border-color: #3388ff; z-index: 1000 !important; }
         .other-icon-style { border-color: #ff4d4f; }
 
+        /* 旗帜图标样式 */
+        .flag-icon {
+            font-size: 30px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+            animation: bounce 1s infinite; /* 让旗子跳动 */
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
         .status-bubble {
             background: white;
             border: none;
@@ -129,9 +140,28 @@
         .leaflet-tooltip-bottom:before { display: none; }
 
         .leaflet-control-attribution { opacity: 0.5; font-size: 10px; }
+        
+        /* 简单的操作提示 */
+        .toast-tip {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+            z-index: 2000;
+        }
     </style>
 </head>
 <body>
+
+    <div id="toast" class="toast-tip">长按地图可插旗集合</div>
 
     <div class="player-list-panel">
         <div class="panel-title">📡 MOUYU的共享地图</div>
@@ -140,12 +170,12 @@
             <div class="user-setting-row">
                 <span class="setting-label">形象</span>
                 <input type="text" id="my-avatar-input" class="avatar-input" value="😼" maxlength="2">
-                <span style="font-size:11px; color:#999;">(输入Emoji)</span>
             </div>
             <div class="user-setting-row">
                 <span class="setting-label">状态</span>
                 <input type="text" id="my-status-input" class="status-input" placeholder="输入状态..." maxlength="10">
             </div>
+            <div style="font-size:10px; color:#999; margin-top:5px;">💡 提示: 长按地图可插旗集合</div>
         </div>
 
         <div id="player-list-container">
@@ -162,7 +192,7 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
-        // --- 1. 地图源设置 ---
+        // --- 1. 地图设置 ---
         var satellite = L.layerGroup([
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
@@ -182,14 +212,9 @@
         });
         
         L.control.zoom({position: 'topleft'}).addTo(map);
+        L.control.layers({ "卫星图": satellite, "街道图": streetMap }).addTo(map);
 
-        var baseMaps = {
-            "卫星图": satellite,
-            "街道图": streetMap
-        };
-        L.control.layers(baseMaps).addTo(map);
-
-        // --- 2. 联机逻辑 ---
+        // --- 2. 基础变量 ---
         var myId = "User_" + Math.floor(Math.random() * 1000);
         document.getElementById('my-status-text').innerText = "本机 ID: " + myId;
         
@@ -197,64 +222,96 @@
         var otherPlayers = {}; 
         var myLatLng = null;   
         var myMarker = null;
-        
-        // 我的轨迹数据
-        var myPathPoints = []; // 存坐标数组
-        var myPolyline = null; // 存线对象
+        var myPolyline = null;
 
         var myCurrentAvatar = "😼"; 
         var myCurrentStatus = "";
+        
+        // 【新增】旗帜相关变量
+        var currentFlag = null; // 只能插一面旗
 
         var client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+
+        // --- 3. 提示动画 ---
+        setTimeout(function(){
+            var t = document.getElementById('toast');
+            t.style.opacity = 1;
+            setTimeout(function(){ t.style.opacity = 0; }, 3000);
+        }, 2000);
 
         client.on('connect', function () {
             console.log('✅ MQTT Connected');
             client.subscribe(topic);
         });
 
-        // 监听输入
-        document.getElementById('my-avatar-input').addEventListener('input', function(e) {
-            var val = e.target.value;
-            if(val && val.trim() !== "") {
-                myCurrentAvatar = val;
-                updateMyMarkerVisuals();
-                manualLocate();
+        // --- 4. 监听长按/右键插旗 (新功能核心) ---
+        map.on('contextmenu', function(e) {
+            var confirmAdd = confirm("🚩 要在这里插旗集合吗？");
+            if(confirmAdd) {
+                // 发送插旗指令
+                var flagData = {
+                    type: 'flag_update', // 标记这是旗帜消息
+                    sender: myId,
+                    action: 'add',
+                    lat: e.latlng.lat,
+                    lng: e.latlng.lng
+                };
+                client.publish(topic, JSON.stringify(flagData));
             }
         });
 
+        // 监听输入变化
+        document.getElementById('my-avatar-input').addEventListener('input', function(e) {
+            if(e.target.value) { myCurrentAvatar = e.target.value; updateMyMarkerVisuals(); manualLocate(); }
+        });
         document.getElementById('my-status-input').addEventListener('input', function(e) {
-            myCurrentStatus = e.target.value;
-            updateMyMarkerVisuals(); 
-            manualLocate(); 
+            myCurrentStatus = e.target.value; updateMyMarkerVisuals(); manualLocate();
         });
 
         function updateMyMarkerVisuals() {
             if(!myMarker) return;
-            var newIcon = L.divIcon({
-                className: 'emoji-marker-icon my-icon-style',
-                html: myCurrentAvatar,
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
-            });
+            var newIcon = L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: myCurrentAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
             myMarker.setIcon(newIcon);
-
-            if (myCurrentStatus && myCurrentStatus.trim() !== "") {
-                if (!myMarker.getTooltip()) {
-                    myMarker.bindTooltip(myCurrentStatus, { 
-                        permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' 
-                    });
-                } else {
-                    myMarker.setTooltipContent(myCurrentStatus);
-                }
+            if (myCurrentStatus) {
+                myMarker.bindTooltip(myCurrentStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' });
             } else {
-                myMarker.unbindTooltip(); 
+                myMarker.unbindTooltip();
             }
         }
 
-        // --- 接收消息 ---
+        // --- 5. 消息处理 (区分位置消息和旗帜消息) ---
         client.on('message', function (topic, message) {
             try {
                 var data = JSON.parse(message.toString());
+                
+                // === 处理旗帜消息 (新) ===
+                if (data.type === 'flag_update') {
+                    if (data.action === 'add') {
+                        // 移除旧旗子
+                        if (currentFlag) map.removeLayer(currentFlag);
+                        
+                        // 创建新旗子 (跳动的动画图标)
+                        var flagIcon = L.divIcon({
+                            className: 'flag-icon',
+                            html: '🏁',
+                            iconSize: [30, 40],
+                            iconAnchor: [15, 40]
+                        });
+                        
+                        currentFlag = L.marker([data.lat, data.lng], { icon: flagIcon })
+                            .addTo(map)
+                            .bindPopup(`<b>🏁 集合点</b><br>发起人: ${data.sender}<br><button onclick="removeFlag()">拔掉旗子</button>`)
+                            .openPopup();
+                    } else if (data.action === 'remove') {
+                        if (currentFlag) {
+                            map.removeLayer(currentFlag);
+                            currentFlag = null;
+                        }
+                    }
+                    return; // 旗帜消息处理完就结束，不往下走
+                }
+
+                // === 处理玩家位置消息 (旧) ===
                 if (data.id === myId) return;
 
                 var now = Date.now();
@@ -262,132 +319,75 @@
                 var pStatus = data.status || "";
 
                 if (!otherPlayers[data.id]) {
-                    // --- 新玩家 ---
-                    var icon = L.divIcon({
-                        className: 'emoji-marker-icon other-icon-style',
-                        html: pAvatar,
-                        iconSize: [40, 40],
-                        iconAnchor: [20, 20]
-                    });
-
+                    var icon = L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
                     var newMarker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
-                    
-                    if(pStatus) {
-                        newMarker.bindTooltip(pStatus, { 
-                            permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' 
-                        });
-                    }
+                    if(pStatus) newMarker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' });
                     newMarker.bindPopup("🚩 " + data.id);
 
-                    // 创建轨迹线 (红色)
-                    var newPolyline = L.polyline([], {
-                        color: '#ff4d4f', // 别人的线是红色
-                        weight: 3,
-                        opacity: 0.7,
-                        dashArray: '5, 10' // 虚线效果，更有科技感
-                    }).addTo(map);
-                    // 加上第一个点
+                    var newPolyline = L.polyline([], { color: '#ff4d4f', weight: 3, opacity: 0.7, dashArray: '5, 10' }).addTo(map);
                     newPolyline.addLatLng([data.lat, data.lng]);
 
-                    otherPlayers[data.id] = { 
-                        marker: newMarker, 
-                        polyline: newPolyline, // 存线对象
-                        lastSeen: now, 
-                        lat: data.lat, 
-                        lng: data.lng,
-                        avatar: pAvatar,
-                        status: pStatus
-                    };
+                    otherPlayers[data.id] = { marker: newMarker, polyline: newPolyline, lastSeen: now, lat: data.lat, lng: data.lng, avatar: pAvatar, status: pStatus };
                 } else {
-                    // --- 老玩家更新 ---
                     var p = otherPlayers[data.id];
-                    
-                    // 1. 移动 Marker
                     p.marker.setLatLng([data.lat, data.lng]);
-                    
-                    // 2. 绘制轨迹：把新坐标加进线里
                     p.polyline.addLatLng([data.lat, data.lng]);
-
                     p.lastSeen = now;
-                    p.lat = data.lat;
-                    p.lng = data.lng;
+                    p.lat = data.lat; p.lng = data.lng;
 
-                    // 更新样式 (头像、状态)
                     if (p.avatar !== pAvatar) {
-                        var newIcon = L.divIcon({
-                            className: 'emoji-marker-icon other-icon-style',
-                            html: pAvatar,
-                            iconSize: [40, 40],
-                            iconAnchor: [20, 20]
-                        });
-                        p.marker.setIcon(newIcon);
+                        p.marker.setIcon(L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] }));
                         p.avatar = pAvatar;
                     }
                     if (p.status !== pStatus) {
                         p.status = pStatus;
-                        if (pStatus) {
-                            if (!p.marker.getTooltip()) {
-                                p.marker.bindTooltip(pStatus, { 
-                                    permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' 
-                                });
-                            } else {
-                                p.marker.setTooltipContent(pStatus);
-                            }
-                        } else {
-                            p.marker.unbindTooltip();
-                        }
+                        pStatus ? p.marker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }) : p.marker.unbindTooltip();
                     }
                 }
-                
                 updatePlayerList();
                 
             } catch (e) {}
         });
 
+        // 拔旗函数 (全局)
+        window.removeFlag = function() {
+            var confirmRm = confirm("确定要取消这个集合点吗？");
+            if(confirmRm) {
+                var flagData = { type: 'flag_update', action: 'remove' };
+                client.publish(topic, JSON.stringify(flagData));
+            }
+        };
+
         function updatePlayerList() {
             var container = document.getElementById('player-list-container');
             container.innerHTML = ""; 
-
             var hasPlayers = false;
 
             for (var id in otherPlayers) {
                 hasPlayers = true;
                 var p = otherPlayers[id];
-                
                 var distText = "--";
                 if (myLatLng) {
                     var d = map.distance(myLatLng, [p.lat, p.lng]); 
-                    if (d > 1000) distText = (d / 1000).toFixed(1) + "km";
-                    else distText = Math.round(d) + "m";
+                    d > 1000 ? distText = (d/1000).toFixed(1)+"km" : distText = Math.round(d)+"m";
                 }
-
                 var statusHtml = p.status ? `<div class="player-status-text">💬 ${p.status}</div>` : '';
 
                 var item = document.createElement('div');
                 item.className = 'player-item';
                 item.innerHTML = `
                     <div class="player-info">
-                        <div class="player-head">
-                            <span>${p.avatar}</span>
-                            <span>${id}</span>
-                        </div>
+                        <div class="player-head"><span>${p.avatar}</span><span>${id}</span></div>
                         ${statusHtml}
                     </div>
                     <div class="player-dist">${distText}</div>
                 `;
-                
                 (function(targetLat, targetLng) {
-                    item.onclick = function() {
-                        map.flyTo([targetLat, targetLng], 18, { duration: 1.5 });
-                    };
+                    item.onclick = function() { map.flyTo([targetLat, targetLng], 18, { duration: 1.5 }); };
                 })(p.lat, p.lng);
-
                 container.appendChild(item);
             }
-
-            if (!hasPlayers) {
-                container.innerHTML = '<div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">暂无其他人</div>';
-            }
+            if (!hasPlayers) container.innerHTML = '<div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">暂无其他人</div>';
         }
 
         setInterval(function() {
@@ -395,12 +395,8 @@
             var listChanged = false;
             for (var id in otherPlayers) {
                 if (now - otherPlayers[id].lastSeen > 10000) {
-                    // 移除 Marker
                     map.removeLayer(otherPlayers[id].marker);
-                    // 【重要】移除轨迹线
-                    if(otherPlayers[id].polyline) {
-                        map.removeLayer(otherPlayers[id].polyline);
-                    }
+                    if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline);
                     delete otherPlayers[id];
                     listChanged = true;
                 }
@@ -413,54 +409,29 @@
         }
 
         var isFirstLocate = true;
-
         map.on('locationfound', function(e) {
             myLatLng = e.latlng; 
-
-            // 处理我的轨迹 (蓝色)
-            if (!myPolyline) {
-                myPolyline = L.polyline([], {
-                    color: '#3388ff', // 我是蓝色
-                    weight: 4,
-                    opacity: 0.8
-                }).addTo(map);
-            }
-            myPolyline.addLatLng(e.latlng); // 加点画线
+            if (!myPolyline) myPolyline = L.polyline([], { color: '#3388ff', weight: 4, opacity: 0.8 }).addTo(map);
+            myPolyline.addLatLng(e.latlng);
 
             if (!myMarker) {
-                var myIcon = L.divIcon({
-                    className: 'emoji-marker-icon my-icon-style',
-                    html: myCurrentAvatar,
-                    iconSize: [40, 40],
-                    iconAnchor: [20, 20]
-                });
-
-                myMarker = L.marker(e.latlng, { icon: myIcon })
-                    .addTo(map)
-                    .bindPopup("<b>我</b>").openPopup();
-                
+                var myIcon = L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: myCurrentAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
+                myMarker = L.marker(e.latlng, { icon: myIcon }).addTo(map).bindPopup("<b>我</b>").openPopup();
                 if(myCurrentStatus) updateMyMarkerVisuals();
             } else {
                 myMarker.setLatLng(e.latlng);
             }
 
-            if (isFirstLocate) {
-                map.setView(e.latlng, 17);
-                isFirstLocate = false;
-            }
+            if (isFirstLocate) { map.setView(e.latlng, 17); isFirstLocate = false; }
 
             var myData = { 
-                id: myId, 
-                lat: e.latlng.lat, 
-                lng: e.latlng.lng,
-                avatar: myCurrentAvatar,
-                status: myCurrentStatus 
+                type: 'player_update', // 标记这是位置消息
+                id: myId, lat: e.latlng.lat, lng: e.latlng.lng, avatar: myCurrentAvatar, status: myCurrentStatus 
             };
             client.publish(topic, JSON.stringify(myData));
         });
         
         map.on('locationerror', function(e) { console.log("定位中..."); });
-
         function manualLocate() { isFirstLocate = true; locateAndShare(); alert("正在刷新位置..."); }
 
         locateAndShare();
