@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>M-O-U-Y-U 的text</title>
+    <title>M-O-U-Y-U 的主页</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -20,7 +20,7 @@
             background: white;
             padding: 12px 20px;
             border-radius: 50px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15); /* 阴影调得更精致一点 */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
             border: none;
             font-size: 14px;
             font-weight: 600;
@@ -33,11 +33,11 @@
         /* 在线列表面板 */
         .player-list-panel {
             position: absolute;
-            top: 20px; /* 稍微往下挪一点，留出呼吸感 */
+            top: 20px;
             right: 20px;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(12px); /* 毛玻璃效果增强 */
+            backdrop-filter: blur(12px);
             padding: 15px;
             border-radius: 16px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
@@ -76,7 +76,6 @@
         .player-dist { font-size: 11px; color: #888; }
         .my-status { font-size: 11px; color: #999; text-align: center; margin-top: 8px; }
         
-        /* 隐藏 Leaflet 默认的版权信息(仅为了截图好看，实际建议保留) */
         .leaflet-control-attribution { opacity: 0.5; font-size: 10px; }
     </style>
 </head>
@@ -98,47 +97,39 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
-        // --- 1. 地图源设置 (CartoDB Voyager - 高清矢量风) ---
+        // --- 1. 地图源设置 ---
         
-        // A. 默认图层：CartoDB Voyager (彩色导航图)
-        // 优点：和你喜欢的“灰图”是同一家出品，清晰度极高，但有漂亮的色彩和详细路名。
-        var voyagerMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap & CartoDB',
-            maxZoom: 20
-        });
-
-        // B. 备用图层：你喜欢的极简灰图
-        var lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap & CartoDB',
-            maxZoom: 20
-        });
-
-        // C. 备用图层：卫星混合图 (Esri)
+        // A. 卫星图 (Esri Hybrid) - 【默认显示】
         var satellite = L.layerGroup([
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
         ]);
 
-        // 初始化地图 - 默认使用 "Voyager"
+        // B. 街道图 (CartoDB Voyager) - 清晰、好看、全矢量
+        var streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap & CartoDB',
+            maxZoom: 20
+        });
+
+        // 初始化地图 - 【修改：默认 layers 设为 satellite】
         var map = L.map('map', {
             center: [35.8617, 104.1954],
             zoom: 4,
-            layers: [voyagerMap], 
+            layers: [satellite], // 这里决定了打开网页先看谁
             zoomControl: false
         });
         
         L.control.zoom({position: 'topleft'}).addTo(map);
 
-        // 图层切换控件
+        // 图层切换控件 - 【修改：只保留两个中文名】
         var baseMaps = {
-            "🗺️ 清楚的彩色图": voyagerMap,
-            "📄 你喜欢的灰图": lightMap,
-            "🌍 卫星影像": satellite
+            "卫星图": satellite,
+            "街道图": streetMap
         };
         L.control.layers(baseMaps).addTo(map);
 
-        // --- 2. 联机逻辑 ---
+        // --- 2. 联机逻辑 (保持不变) ---
         var myId = "User_" + Math.floor(Math.random() * 1000);
         document.getElementById('my-status-text').innerText = "本机 ID: " + myId;
         
@@ -162,7 +153,6 @@
                 var now = Date.now();
 
                 if (!otherPlayers[data.id]) {
-                    // 创建别人的标记 (用红色圆圈)
                     var newMarker = L.circleMarker([data.lat, data.lng], {
                         color: '#ff4d4f', 
                         fillColor: '#ff4d4f', 
@@ -248,7 +238,6 @@
         map.on('locationfound', function(e) {
             myLatLng = e.latlng; 
 
-            // 我的标记 (蓝色呼吸感圆圈)
             if (!myMarker) {
                 myMarker = L.circleMarker(e.latlng, {
                     color: '#1890ff', 
