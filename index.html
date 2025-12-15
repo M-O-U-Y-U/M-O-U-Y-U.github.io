@@ -9,8 +9,17 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            /* 🌈 核心修改：彩虹渐变背景 */
+            background: linear-gradient(135deg, 
+                #FF6B6B 0%, 
+                #FFD93D 25%, 
+                #6BCB77 50%, 
+                #4D96FF 75%, 
+                #6F42C1 100%);
+            /* 让背景铺满屏幕，防止重复 */
             min-height: 100vh;
+            background-attachment: fixed; /* 固定背景，滑动时不跟着动，更有质感 */
+            
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -24,17 +33,22 @@
             text-align: center;
             margin-bottom: 40px;
             animation: fadeInDown 0.8s ease;
+            /* 为了在彩虹背景上看清字，加一点白色阴影 */
+            text-shadow: 0 2px 4px rgba(255, 255, 255, 0.5); 
         }
         
         header h1 {
             font-size: 2.5rem;
             margin-bottom: 10px;
-            color: #2c3e50;
+            color: #fff; /* 标题改成白色，更醒目 */
+            text-shadow: 0 2px 5px rgba(0,0,0,0.2); /* 标题加深色阴影，防止背景太亮看不清 */
         }
         
         header p {
-            color: #666;
+            color: #f0f0f0; /* 副标题也改浅色 */
             font-size: 1.1rem;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            font-weight: 500;
         }
 
         /* 项目卡片容器 */
@@ -48,21 +62,23 @@
 
         /* 单个项目卡片 */
         .card {
-            background: white;
+            /* 卡片用半透明白色，能隐约透出后面的彩虹 */
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px); /* 毛玻璃特效 */
             padding: 30px;
             border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             text-align: center;
             text-decoration: none;
             color: inherit;
-            border: 1px solid rgba(255,255,255,0.5);
+            border: 1px solid rgba(255,255,255,0.6);
             animation: fadeInUp 0.8s ease;
         }
 
         .card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
         }
 
         .card-icon {
@@ -79,7 +95,7 @@
 
         .card p {
             font-size: 0.95rem;
-            color: #777;
+            color: #666;
             line-height: 1.6;
             margin-bottom: 20px;
         }
@@ -105,23 +121,27 @@
         /* 按钮样式 */
         .btn {
             display: inline-block;
-            background: #007aff;
+            /* 按钮也搞个渐变色，呼应背景 */
+            background: linear-gradient(90deg, #4D96FF, #6F42C1);
             color: white;
             padding: 12px 30px;
             border-radius: 50px;
             font-weight: 600;
-            transition: background 0.2s;
+            transition: opacity 0.2s, transform 0.2s;
+            box-shadow: 0 4px 15px rgba(77, 150, 255, 0.4);
         }
 
         .card:hover .btn {
-            background: #0056b3;
+            opacity: 0.9;
+            transform: scale(1.05);
         }
 
         /* 页脚 */
         footer {
             margin-top: 50px;
             font-size: 12px;
-            color: #999;
+            color: rgba(255, 255, 255, 0.8); /* 页脚文字改浅色 */
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
         /* 动画 */
@@ -153,15 +173,15 @@
             <span class="btn">🚀 启动应用</span>
         </a>
 
-        <div class="card" style="opacity: 0.8; cursor: default;">
+        <div class="card" style="opacity: 0.9; cursor: default;">
             <span class="card-icon">🧩</span>
             <h2>个人兴趣 & 未来计划</h2>
-            <p>这里将记录我的一些有趣的小玩意。计划更新：旅游攻略、动漫影视导航推荐、手工DIY记录以及单片机开发项目（也可能都不会做🤪）。</p>
+            <p>这里将记录一些有趣的小玩意。计划更新：旅游攻略、动漫影视导航推荐、手工DIY记录以及有趣的开发项目（当然，也可能到最后都不会做的🤪）。</p>
             <div class="tags">
                 <span class="tag">✈️ 旅游攻略</span>
                 <span class="tag">📺 动漫影视</span>
                 <span class="tag">🛠️ 手工DIY</span>
-                <span class="tag">🤖 有趣的小玩意</span>
+                <span class="tag">🤖 有趣的东西</span>
             </div>
         </div>
 
