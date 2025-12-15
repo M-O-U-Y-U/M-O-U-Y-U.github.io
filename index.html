@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>M-O-U-Y-U 的主页</title>
+    <title>MOUYU的共享实时位置地图</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -11,7 +11,6 @@
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         #map { height: 100vh; width: 100%; }
         
-        /* 重新定位按钮 */
         .locate-btn {
             position: absolute;
             bottom: 40px;
@@ -30,7 +29,6 @@
         }
         .locate-btn:active { transform: scale(0.95); background: #f5f5f5; }
 
-        /* 在线列表面板 */
         .player-list-panel {
             position: absolute;
             top: 20px;
@@ -82,7 +80,7 @@
 <body>
 
     <div class="player-list-panel">
-        <div class="panel-title">📡 附近信号</div>
+        <div class="panel-title">📡 MOUYU的共享地图</div>
         <div id="player-list-container">
             <div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">扫描中...</div>
         </div>
@@ -98,38 +96,34 @@
 
     <script>
         // --- 1. 地图源设置 ---
-        
-        // A. 卫星图 (Esri Hybrid) - 【默认显示】
         var satellite = L.layerGroup([
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
         ]);
 
-        // B. 街道图 (CartoDB Voyager) - 清晰、好看、全矢量
         var streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '© OpenStreetMap & CartoDB',
             maxZoom: 20
         });
 
-        // 初始化地图 - 【修改：默认 layers 设为 satellite】
+        // 默认显示卫星图
         var map = L.map('map', {
             center: [35.8617, 104.1954],
             zoom: 4,
-            layers: [satellite], // 这里决定了打开网页先看谁
+            layers: [satellite], 
             zoomControl: false
         });
         
         L.control.zoom({position: 'topleft'}).addTo(map);
 
-        // 图层切换控件 - 【修改：只保留两个中文名】
         var baseMaps = {
             "卫星图": satellite,
             "街道图": streetMap
         };
         L.control.layers(baseMaps).addTo(map);
 
-        // --- 2. 联机逻辑 (保持不变) ---
+        // --- 2. 联机逻辑 ---
         var myId = "User_" + Math.floor(Math.random() * 1000);
         document.getElementById('my-status-text').innerText = "本机 ID: " + myId;
         
@@ -175,7 +169,6 @@
             } catch (e) {}
         });
 
-        // --- 3. 列表刷新 ---
         function updatePlayerList() {
             var container = document.getElementById('player-list-container');
             container.innerHTML = ""; 
@@ -214,7 +207,6 @@
             }
         }
 
-        // --- 4. 幽灵清除 ---
         setInterval(function() {
             var now = Date.now();
             var listChanged = false;
@@ -228,7 +220,6 @@
             if(listChanged) updatePlayerList();
         }, 2000);
 
-        // --- 5. 定位与发送 ---
         function locateAndShare() {
             map.locate({ setView: false, maxZoom: 17, timeout: 30000, enableHighAccuracy: true, maximumAge: 0 });
         }
