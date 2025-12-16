@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU 共享地图 (生化模式)</title>
+    <title>MOUYU 共享地图 (房间同步版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -15,7 +15,7 @@
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
         #map { height: 100vh; width: 100%; }
         
-        /* 遮罩与弹窗 */
+        /* 遮罩与弹窗通用 */
         .overlay-mask {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px);
@@ -38,8 +38,8 @@
         .action-btn:active { transform: scale(0.98); opacity: 0.9; }
         .btn-blue { background: #1890ff; }
         .btn-red { background: #ff4d4f; }
-        .btn-green { background: #52c41a; }
         .btn-gray { background: #f0f0f0; color: #666; }
+        .btn-black { background: #333; color: #fff; }
 
         /* 地图按钮 */
         .map-btn {
@@ -146,11 +146,6 @@
         /* ========================
            🧟‍♂️ 生化模式特有样式
            ======================== */
-        .bio-mode-checkbox-row {
-            margin-top: 10px; background: #fff1f0; padding: 8px; border-radius: 6px; 
-            border: 1px solid #ffa39e; display: flex; align-items: center; gap: 8px;
-            font-size: 13px; font-weight: bold; color: #cf1322;
-        }
         .bio-status-panel {
             position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.8); color: white; padding: 8px 15px; border-radius: 20px;
@@ -173,6 +168,12 @@
             background: rgba(0,0,0,0.8); z-index: 9999; display: none;
             justify-content: center; align-items: center; color: red;
             font-size: 100px; font-weight: 900; font-family: monospace;
+        }
+        
+        /* 强制结束按钮 (游戏进行中显示) */
+        .force-stop-btn {
+            display: none; width: 100%; background: #000; color: #ff4d4f; border: 1px solid #ff4d4f; 
+            border-radius: 6px; padding: 10px; font-size: 13px; font-weight: bold; cursor: pointer; margin-top: 8px;
         }
     </style>
 </head>
@@ -205,14 +206,25 @@
         </div>
     </div>
     
+    <div id="mode-select-overlay" class="overlay-mask" style="display: none;">
+        <div class="dialog-box">
+            <div style="font-size: 40px; margin-bottom: 10px;">🎮</div>
+            <div class="dialog-title">房间模式设置</div>
+            <div style="font-size: 13px; color: #666; margin-bottom: 15px;">
+                选择该房间的玩法模式。<br>注意：必须设置房间密码才能开启特殊模式。
+            </div>
+            <button class="action-btn btn-black" onclick="requestSetBioMode()">🧟‍♂️ 开启 生化危机模式</button>
+            <button class="action-btn btn-gray" onclick="document.getElementById('mode-select-overlay').style.display='none'">关闭</button>
+        </div>
+    </div>
+
     <div id="bio-vote-overlay" class="overlay-mask" style="display: none;">
         <div class="dialog-box">
             <div style="font-size: 40px; margin-bottom: 10px;">🧟‍♂️</div>
-            <div class="dialog-title">发起生化模式？</div>
+            <div class="dialog-title">即将开始</div>
             <div style="font-size: 13px; color: #666; margin-bottom: 20px;">
                 即将开始10秒倒计时，随后随机一人变异。<br>
-                <b>幸存者目标</b>：远离感染者！<br>
-                <b>感染条件</b>：距离小于10米。
+                <b>目标</b>：远离感染者(距离>10米)！
             </div>
             <div style="display: flex; gap: 10px;">
                 <button class="action-btn btn-gray" onclick="document.getElementById('bio-vote-overlay').style.display='none'">取消</button>
@@ -250,17 +262,16 @@
                 </div>
                 <div class="user-setting-row room-input-row">
                     <span class="setting-label" style="font-weight:bold; color:#0050b3;">密码</span>
-                    <input type="text" id="pass-input" class="status-input" placeholder="作为加密密钥(重要)" style="background:white;">
-                </div>
-                
-                <div class="bio-mode-checkbox-row">
-                    <input type="checkbox" id="bio-mode-check" style="width:16px; height:16px;">
-                    <label for="bio-mode-check">生化危机模式</label>
+                    <input type="text" id="pass-input" class="status-input" placeholder="加密(可选)" style="background:white;">
                 </div>
 
-                <button class="gpx-btn" onclick="joinRoom()" style="background:#1890ff; margin-top:5px; height: 32px; line-height: 1;">🚪 进入房间 (重置加密)</button>
+                <button class="gpx-btn" onclick="joinRoom()" style="background:#1890ff; margin-top:5px; height: 32px; line-height: 1;">🚪 进入/刷新房间</button>
                 
-                <button id="start-game-btn" class="action-btn btn-red" onclick="openBioVote()" style="display:none; font-size:13px; padding:8px;">🔥 发起投票开始</button>
+                <button id="mode-setting-btn" class="gpx-btn" onclick="openModeSelect()" style="background:#595959; margin-top:5px; display:none;">🎮 模式设置</button>
+                
+                <button id="start-game-btn" class="action-btn btn-green" onclick="openBioVote()" style="display:none; font-size:13px; padding:8px; margin-top:5px;">🔥 开始生化倒计时</button>
+
+                <button id="force-stop-btn" class="force-stop-btn" onclick="forceEndGame()">⛔ 强制结束游戏</button>
             </div>
             
             <div style="padding-bottom: 10px; border-bottom: 1px dashed #eee; margin-bottom: 10px;">
@@ -409,8 +420,9 @@
 
         // 🧟‍♂️ 生化模式变量
         var isBioMode = false;
-        var isZombie = false; // 我是否感染
-        var zombieList = new Set(); // 记录谁是丧尸ID
+        var isGameRunning = false; // 游戏是否进行中
+        var isZombie = false; 
+        var zombieList = new Set(); 
 
         function startApp() {
             // 图层初始化
@@ -454,7 +466,7 @@
             map.on('locationfound', onLocationFound);
 
             locateAndShare(false); 
-            setInterval(() => locateAndShare(false), 2000); // 加快刷新频率以适应游戏
+            setInterval(() => locateAndShare(false), 2000); 
             
             // 清理掉线玩家
             setInterval(function() {
@@ -464,12 +476,12 @@
                         map.removeLayer(otherPlayers[id].marker); 
                         if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); 
                         delete otherPlayers[id]; 
-                        zombieList.delete(id); // 同时清理僵尸列表
+                        zombieList.delete(id); 
                         listChanged = true; 
                     } 
                 }
                 if(listChanged) updatePlayerList();
-                if(isBioMode) updateBioStats(); // 更新计分板
+                if(isBioMode) updateBioStats();
             }, 2000);
 
             setTimeout(function(){ showToast("长按地图插旗 | 点击直尺测量"); }, 1000);
@@ -492,20 +504,8 @@
             var room = document.getElementById('room-input').value.trim();
             var newTopic = getTopic(room);
             
-            // 获取是否开启生化模式
-            var checkbox = document.getElementById('bio-mode-check');
-            isBioMode = checkbox.checked;
-            
-            if(isBioMode) {
-                document.getElementById('start-game-btn').style.display = 'block';
-                document.getElementById('bio-status-bar').style.display = 'block';
-            } else {
-                document.getElementById('start-game-btn').style.display = 'none';
-                document.getElementById('bio-status-bar').style.display = 'none';
-                document.getElementById('infection-effect').style.display = 'none';
-                isZombie = false;
-                zombieList.clear();
-            }
+            // 每次重新进房，重置状态
+            resetGameLocalState();
 
             if (currentTopic && client.connected) {
                 client.unsubscribe(currentTopic);
@@ -521,10 +521,13 @@
             currentTopic = newTopic;
             if (client.connected) {
                 client.subscribe(currentTopic);
-                publishData({ type: 'chat', senderId: 'SYS', senderName: '系统', text: `${myName} 进房` });
+                // 进房广播：如果是新加入，请求当前的房间状态
+                publishData({ type: 'sys_hello', senderId: myUniqueId, senderName: myName });
                 triggerManualLocate();
             }
-            alert("✅ 进入: " + room + (isBioMode ? "\n🧟‍♂️ 生化模式已激活" : ""));
+            // 显示设置按钮
+            document.getElementById('mode-setting-btn').style.display = 'block';
+            alert("✅ 进入: " + room + "\n🔐 加密: " + (getRoomPassword() ? "开启" : "关闭"));
             document.querySelector('.panel-title').innerText = "📡 " + room;
         }
 
@@ -534,7 +537,58 @@
         }
 
         // ==========================
-        // 🚨 SOS & 生化模式功能
+        // 🎮 游戏模式控制
+        // ==========================
+        
+        function openModeSelect() {
+            document.getElementById('mode-select-overlay').style.display = 'flex';
+        }
+
+        function requestSetBioMode() {
+            // 校验：必须设置密码
+            var pass = getRoomPassword();
+            if (!pass) {
+                alert("⚠️ 为了安全，必须设置房间密码才能开启【生化模式】！\n请在面板中输入密码后重试。");
+                return;
+            }
+            // 广播：切换模式
+            publishData({ type: 'sys_mode_switch', mode: 'bio' });
+            document.getElementById('mode-select-overlay').style.display = 'none';
+        }
+
+        function activateBioModeUI() {
+            isBioMode = true;
+            document.getElementById('start-game-btn').style.display = 'block';
+            document.getElementById('bio-status-bar').style.display = 'block';
+            showToast("⚠️ 房间已切换为【生化危机模式】");
+        }
+
+        function resetGameLocalState() {
+            isBioMode = false;
+            isGameRunning = false;
+            isZombie = false;
+            zombieList.clear();
+            
+            document.getElementById('start-game-btn').style.display = 'none';
+            document.getElementById('bio-status-bar').style.display = 'none';
+            document.getElementById('force-stop-btn').style.display = 'none';
+            document.getElementById('infection-effect').style.display = 'none';
+            document.getElementById('countdown-overlay').style.display = 'none';
+            
+            // 恢复头像
+            myCurrentAvatar = document.getElementById('my-avatar-input').value || "😼";
+            myCurrentStatus = document.getElementById('my-status-input').value || "";
+            updateMyMarkerVisuals();
+        }
+
+        function forceEndGame() {
+            if(confirm("确定强制结束本轮游戏吗？\n所有人的状态将重置。")) {
+                publishData({ type: 'sys_game_stop' });
+            }
+        }
+
+        // ==========================
+        // 🚨 SOS & 游戏逻辑
         // ==========================
         
         function openSOSConfirm() {
@@ -548,65 +602,99 @@
             showToast("🚨 SOS 信号已发送！");
         }
 
-        // 生化模式：开启投票
         function openBioVote() {
             if(!isBioMode) return;
             document.getElementById('bio-vote-overlay').style.display = 'flex';
         }
         
-        // 生化模式：确认开始（发起者逻辑）
         function confirmStartBioGame() {
             document.getElementById('bio-vote-overlay').style.display = 'none';
             // 发送倒计时信号
             publishData({ type: 'game_countdown', count: 10, initiator: myName });
             
-            // 10秒后，发起者负责选定母体
+            // 10秒后选定母体
             setTimeout(function() {
                 var candidates = Object.keys(otherPlayers);
                 candidates.push(myUniqueId);
                 var luckyIndex = Math.floor(Math.random() * candidates.length);
                 var targetId = candidates[luckyIndex];
-                
                 publishData({ type: 'game_infect_zero', targetId: targetId });
             }, 10000);
         }
 
-        // 变成丧尸逻辑
         function becomeZombie() {
             if(isZombie) return;
             isZombie = true;
             zombieList.add(myUniqueId);
             
-            // 视觉特效
             document.getElementById('infection-effect').style.display = 'block';
-            if (window.navigator && window.navigator.vibrate) {
-                window.navigator.vibrate([200, 100, 200, 100, 500]);
-            }
+            if (window.navigator && window.navigator.vibrate) { window.navigator.vibrate([200, 100, 200, 100, 500]); }
             alert("🧟‍♂️ 你已被感染！去抓捕幸存者！");
             
-            // 更新形象
             myCurrentAvatar = "🧟‍♂️";
-            document.getElementById('my-avatar-input').value = "🧟‍♂️";
+            // 不改输入框，只改显示状态
             myCurrentStatus = "已感染";
             updateMyMarkerVisuals();
-            
-            // 广播
             publishData({ type: 'player_infected', id: myUniqueId, name: myName });
         }
 
         function handleMqttMessage(topic, message) {
             try {
-                var data = decryptPayload(message.toString());
+                var payloadStr = message.toString();
+                // 尝试解密
+                var data = decryptPayload(payloadStr);
+                
+                // 如果解密失败（密码不对），则直接忽略
                 if (!data) return; 
 
-                // --- 🎮 生化模式消息处理 ---
+                // --- 📡 系统同步逻辑 ---
+                if (data.type === 'sys_hello') {
+                    // 新人进房，如果你是已开启模式的人，告诉他当前模式
+                    if (isBioMode) {
+                        publishData({ type: 'sys_sync_state', mode: 'bio', running: isGameRunning });
+                    }
+                    if (data.senderId !== myUniqueId) {
+                         // 可以在聊天栏提示: appendChatMsg('系统', data.senderName + ' 加入房间', false);
+                    }
+                    return;
+                }
+                if (data.type === 'sys_sync_state') {
+                    if (data.mode === 'bio' && !isBioMode) {
+                        activateBioModeUI();
+                        if (data.running) {
+                             document.getElementById('force-stop-btn').style.display = 'block';
+                             isGameRunning = true;
+                        }
+                    }
+                    return;
+                }
+                if (data.type === 'sys_mode_switch') {
+                    if (data.mode === 'bio') {
+                        activateBioModeUI();
+                    }
+                    return;
+                }
+                if (data.type === 'sys_game_stop') {
+                    resetGameLocalState();
+                    // 保持在Bio UI下，还是完全退出Bio模式？
+                    // 逻辑：强制结束是结束"游戏进程"，但房间可能还想保留在生化模式准备阶段
+                    // 为了简单，先只重置游戏运行状态，保留模式UI
+                    activateBioModeUI(); 
+                    showToast("⛔ 游戏已被强制重置");
+                    return;
+                }
+                // -----------------------
+
+                // --- 🎮 生化模式消息 ---
                 if (isBioMode) {
-                    // 1. 倒计时
                     if (data.type === 'game_countdown') {
                         var count = data.count;
                         var overlay = document.getElementById('countdown-overlay');
                         overlay.style.display = 'flex';
                         overlay.innerText = count;
+                        isGameRunning = true;
+                        document.getElementById('force-stop-btn').style.display = 'block'; // 显示强制结束
+                        
                         var timer = setInterval(function() {
                             count--;
                             overlay.innerText = count;
@@ -617,8 +705,6 @@
                         }, 1000);
                         return;
                     }
-                    
-                    // 2. 母体选定 / 感染事件
                     if (data.type === 'game_infect_zero' || data.type === 'player_infected') {
                         var victimId = data.targetId || data.id;
                         zombieList.add(victimId);
@@ -626,7 +712,6 @@
                         if (victimId === myUniqueId) {
                             becomeZombie();
                         } else {
-                            // 标记别人为丧尸
                             if (otherPlayers[victimId]) {
                                 otherPlayers[victimId].avatar = "🧟‍♂️";
                                 otherPlayers[victimId].marker.setIcon(L.divIcon({ className: 'emoji-marker-icon zombie-icon-style', html: "🧟‍♂️", iconSize: [40, 40], iconAnchor: [20, 20] }));
@@ -638,7 +723,7 @@
                         return;
                     }
                 }
-                // ---------------------------
+                // -----------------------
 
                 if (data.type === 'sos') {
                     if (data.senderId !== myUniqueId) {
@@ -674,16 +759,12 @@
                 
                 if (data.id === myUniqueId) return;
                 
-                // 玩家更新逻辑
                 var now = Date.now(); 
                 var pAvatar = data.avatar || "📍"; 
                 var pStatus = data.status || ""; 
                 var pName = data.name || "未知";
                 
-                // 生化模式下，强制覆盖丧尸形象
-                if (isBioMode && zombieList.has(data.id)) {
-                    pAvatar = "🧟‍♂️";
-                }
+                if (isBioMode && zombieList.has(data.id)) { pAvatar = "🧟‍♂️"; }
 
                 if (!otherPlayers[data.id]) {
                     var isZ = isBioMode && zombieList.has(data.id);
@@ -711,7 +792,6 @@
                     p.lastSeen = now; p.lat = data.lat; p.lng = data.lng;
                     if (p.name !== pName) { p.marker.bindPopup(`<b>${pName}</b>`); p.name = pName; }
                     
-                    // 只有当头像真正变化时才更新 (防止闪烁)
                     if (p.avatar !== pAvatar) { 
                         var isZ = isBioMode && zombieList.has(data.id);
                         var iconClass = isZ ? 'emoji-marker-icon zombie-icon-style' : 'emoji-marker-icon other-icon-style';
@@ -729,7 +809,6 @@
             } catch (e) { console.error("Msg Error", e); }
         }
 
-        // 更新计分板
         function updateBioStats() {
             var total = Object.keys(otherPlayers).length + 1;
             var zombies = zombieList.size;
@@ -890,10 +969,9 @@
             // 🧟‍♂️ 生化模式距离判定逻辑
             if (isBioMode && !isZombie) {
                 for (var id in otherPlayers) {
-                    // 如果对方是丧尸
                     if (zombieList.has(id)) {
                         var dist = map.distance(myLatLng, [otherPlayers[id].lat, otherPlayers[id].lng]);
-                        // 判定距离 < 10米 (根据GPS精度，10米其实很近，建议稍微大一点点容错，或者保持10)
+                        // 判定距离 < 10米 
                         if (dist < 10) {
                             becomeZombie();
                         }
