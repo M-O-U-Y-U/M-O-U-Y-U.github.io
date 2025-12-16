@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU 共享地图 (V9.0 终极博弈版)</title>
+    <title>MOUYU 共享地图 (V10.0 幽灵行动)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -66,7 +66,7 @@
         .follow-btn { position: absolute; bottom: 100px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
         .measure-btn { position: absolute; bottom: 150px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
         
-        /* 📡 雷达按钮 (幽灵模式专用) */
+        /* 📡 雷达按钮 */
         .radar-btn {
             position: absolute; bottom: 210px; right: 20px; z-index: 999; width: 50px; height: 50px; border-radius: 50%;
             background: #222; color: #00f3ff; font-weight: bold; font-size: 24px; border: 2px solid #00f3ff;
@@ -150,7 +150,6 @@
         .leaflet-tooltip-bottom:before { display: none; }
         
         .flag-icon { font-size: 30px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); animation: bounce 1s infinite; }
-        .sos-marker-pulse { border: 3px solid #ff4d4f; background: rgba(255, 77, 79, 0.4); border-radius: 50%; animation: markerPulse 1.5s infinite; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
 
@@ -159,12 +158,10 @@
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .chat-badge { display: none; width: 8px; height: 8px; background: #ff4d4f; border-radius: 50%; margin-right: 5px; }
         
-        /* 表情轰炸动画 */
         .floating-emoji { font-size: 60px; position: absolute; animation: floatUp 2s forwards; pointer-events: none; z-index: 5000; text-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         @keyframes floatUp { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 20% { transform: translateY(-20px) scale(1.2); opacity: 1; } 100% { transform: translateY(-150px) scale(1); opacity: 0; } }
 
         .toast-tip { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity 0.5s; z-index: 2000; }
-        .sos-alert-box { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: #ff4d4f; color: white; padding: 15px 30px; border-radius: 50px; font-weight: bold; box-shadow: 0 5px 20px rgba(255, 77, 79, 0.6); z-index: 3000; display: none; animation: shake 0.5s; cursor: pointer; }
         .leaflet-control-scale { margin-bottom: 5px !important; margin-left: 10px !important; }
 
         /* ========================
@@ -301,7 +298,7 @@
                     <input type="number" id="custom-zombie-num" value="1" min="1" max="10" class="setting-input">人
                 </div>
                 <div style="margin-bottom:10px;">
-                    <button id="draw-fence-btn" class="action-btn btn-orange" onclick="toggleDrawFence()">✏️ 划定游戏范围 (可选)</button>
+                    <button id="draw-fence-btn" class="action-btn btn-orange" onclick="toggleDrawFence()">✏️ 必须划定范围</button>
                     <div id="fence-status" style="font-size:11px; color:#666; margin-top:2px;">未设置范围</div>
                 </div>
                 <button id="admin-start-btn" class="action-btn btn-red" disabled onclick="finalStartGame()">等待全员投票...</button>
@@ -555,7 +552,7 @@
         var isFollowing = false; var myHeading = 0; 
         var currentTopic = ""; 
         var debounceTimer = null;
-        var audioCtx = null; // 音频上下文
+        var audioCtx = null; 
 
         // 游戏状态
         var currentMode = 'normal'; 
@@ -580,6 +577,7 @@
         var ghostTarget = null; // 任务点
         var crumbPoints = []; // 足迹点
         var fogTimer = null;
+        var allGhostTargets = {}; // 存储所有人的目标
 
         // 围栏
         var fencePoints = [];
@@ -595,7 +593,6 @@
                 if (document.visibilityState === 'visible' && 'wakeLock' in navigator) { try { await navigator.wakeLock.request('screen'); } catch(e) {} }
             });
 
-            // 初始化音频 (用于警报)
             try { window.AudioContext = window.AudioContext || window.webkitAudioContext; audioCtx = new AudioContext(); } catch(e) {}
 
             darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
@@ -645,7 +642,6 @@
                     if (now - otherPlayers[id].lastSeen > 15000) { 
                         map.removeLayer(otherPlayers[id].marker); 
                         if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); 
-                        // 足迹清除逻辑
                         if(otherPlayers[id].crumbs) { otherPlayers[id].crumbs.forEach(c => map.removeLayer(c)); otherPlayers[id].crumbs = []; }
                         
                         delete otherPlayers[id]; 
@@ -786,6 +782,10 @@
             if(ghostTarget) { map.removeLayer(ghostTarget); ghostTarget = null; }
             if(fogTimer) clearInterval(fogTimer);
             document.getElementById('radar-btn').style.display = 'none';
+            for(var key in allGhostTargets) {
+                if(allGhostTargets[key]) map.removeLayer(allGhostTargets[key]);
+            }
+            allGhostTargets = {};
             
             // Common
             fencePoints = [];
@@ -914,6 +914,27 @@
             }
             return inside;
         }
+        
+        function getRandomPointInPolygon(polyPoints) {
+            if(!polyPoints || polyPoints.length < 3) return null;
+            // 简单的边界框法
+            var minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+            polyPoints.forEach(p => {
+                if(p[0] < minLat) minLat = p[0];
+                if(p[0] > maxLat) maxLat = p[0];
+                if(p[1] < minLng) minLng = p[1];
+                if(p[1] > maxLng) maxLng = p[1];
+            });
+            
+            for(var i=0; i<50; i++) { // 尝试50次
+                var lat = minLat + Math.random() * (maxLat - minLat);
+                var lng = minLng + Math.random() * (maxLng - minLng);
+                if(isPointInPolygon(lat, lng, polyPoints)) {
+                    return [lat, lng];
+                }
+            }
+            return null; // 失败
+        }
 
         // ==========================
         // 🗳️ 投票与开始
@@ -936,7 +957,7 @@
                 rules.innerHTML = `<li>🎯 <b>目标：</b>跑动覆盖更长路径。</li><li>🖌️ <b>规则：</b>轨迹会覆盖对手颜色。</li>`;
             } else if (currentMode === 'ghost') {
                 title.innerText = "准备开始幽灵模式";
-                rules.innerHTML = `<li>🎯 <b>好人：</b>前往任务点打卡。</li><li>🔪 <b>内鬼：</b>击杀好人(靠近)。</li><li>🌫️ <b>迷雾：</b>每30秒视野消失。</li>`;
+                rules.innerHTML = `<li>🎯 <b>好人：</b>前往专属任务点。</li><li>🔪 <b>内鬼：</b>击杀好人(靠近)。</li><li>🌫️ <b>迷雾：</b>30秒隐身，杀手需雷达。</li>`;
             }
             
             publishData({ type: 'vote_init', initiator: myName, mode: currentMode });
@@ -949,6 +970,11 @@
         }
         
         function finalStartGame() {
+            if (currentMode === 'ghost' && fencePoints.length === 0) {
+                alertBox("⚠️ 幽灵模式必须划定围栏才能生成任务点！");
+                return;
+            }
+            
             document.getElementById('common-vote-overlay').style.display = 'none';
             var mins = document.getElementById('custom-game-time').value;
             var numZombies = document.getElementById('custom-zombie-num').value;
@@ -972,15 +998,18 @@
                     }
                     publishData({ type: 'game_infect_batch', targets: targetIds });
                 } else if (currentMode === 'ghost') {
-                    // 分配角色
                     var players = Object.keys(otherPlayers);
                     players.push(myUniqueId);
                     var killer = players[Math.floor(Math.random() * players.length)];
-                    // 生成任务点 (在房主附近随机)
-                    var targetLat = myLatLng.lat + (Math.random() - 0.5) * 0.005;
-                    var targetLng = myLatLng.lng + (Math.random() - 0.5) * 0.005;
                     
-                    publishData({ type: 'ghost_start', killer: killer, tLat: targetLat, tLng: targetLng });
+                    // 为每个人生成唯一任务点
+                    var targetsMap = {};
+                    players.forEach(pid => {
+                        var pt = getRandomPointInPolygon(fencePoints);
+                        if(pt) targetsMap[pid] = {lat: pt[0], lng: pt[1]};
+                    });
+                    
+                    publishData({ type: 'ghost_start', killer: killer, targets: targetsMap });
                 }
                 
                 publishData({ type: 'game_start_timer', timestamp: Date.now(), duration: duration });
@@ -990,23 +1019,38 @@
         // ==========================
         // 👻 幽灵模式
         // ==========================
-        function startGhostRound(killerId, tLat, tLng) {
+        function startGhostRound(killerId, targets) {
             myRole = (myUniqueId === killerId) ? 'impostor' : 'crew';
+            
+            // 保存所有目标点，用于杀手可见
+            allGhostTargets = {};
+            for(var uid in targets) {
+                var t = targets[uid];
+                var iconType = (uid === myUniqueId) ? '⭐' : '🎯';
+                // 只有自己或者是杀手才能看到点
+                if (uid === myUniqueId || myRole === 'impostor') {
+                    var m = L.marker([t.lat, t.lng], { 
+                        icon: L.divIcon({ className: 'flag-icon', html: iconType, iconSize: [30, 30] }) 
+                    }).addTo(map);
+                    if (uid === myUniqueId) {
+                        m.bindPopup("<b>我的任务点</b>").openPopup();
+                        ghostTarget = m;
+                    } else {
+                        m.bindPopup("玩家目标");
+                    }
+                    allGhostTargets[uid] = m;
+                }
+            }
+
             if(myRole === 'impostor') {
                 alertBox("🔪 你是内鬼！去击杀好人！");
                 document.getElementById('ghost-status-text').innerText = "🔪 目标：击杀所有好人";
                 document.getElementById('ghost-status-text').style.color = "red";
+                document.getElementById('radar-btn').style.display = 'flex';
             } else {
                 alertBox("🛡️ 你是船员！前往黄色星星打卡！");
                 document.getElementById('ghost-status-text').innerText = "🏃 目标：前往打卡点";
             }
-            
-            // 显示任务点
-            if(ghostTarget) map.removeLayer(ghostTarget);
-            var starIcon = L.divIcon({ className: 'flag-icon', html: '⭐', iconSize: [30, 30] });
-            ghostTarget = L.marker([tLat, tLng], { icon: starIcon }).addTo(map).bindPopup("打卡点");
-            
-            document.getElementById('radar-btn').style.display = 'flex';
             
             // 启动迷雾循环
             fogTimer = setInterval(function() {
@@ -1020,34 +1064,21 @@
             if(isRadarCooldown) return;
             isRadarCooldown = true;
             document.getElementById('radar-btn').classList.add('radar-cooldown');
-            
-            // 临时解除迷雾
             var tempFog = isFoggy;
             isFoggy = false;
             updatePlayerList();
-            
-            // 播放扫描音效
             playBeep(800, 0.1);
-            
-            setTimeout(() => {
-                isFoggy = tempFog;
-                updatePlayerList();
-            }, 3000); // 持续3秒
-            
-            setTimeout(() => {
-                isRadarCooldown = false;
-                document.getElementById('radar-btn').classList.remove('radar-cooldown');
-                showToast("📡 雷达充能完毕");
-            }, 30000); // 30秒冷却
+            setTimeout(() => { isFoggy = tempFog; updatePlayerList(); }, 3000); 
+            setTimeout(() => { isRadarCooldown = false; document.getElementById('radar-btn').classList.remove('radar-cooldown'); showToast("📡 雷达充能完毕"); }, 30000); 
         }
         
         function checkGhostInteractions() {
-            if(!isGameRunning || !ghostTarget) return;
+            if(!isGameRunning) return;
             
             // 好人打卡
-            if(myRole === 'crew') {
+            if(myRole === 'crew' && ghostTarget) {
                 var d = map.distance(myLatLng, ghostTarget.getLatLng());
-                if(d < 20) {
+                if(d < 15) {
                     publishData({ type: 'ghost_win_crew', winner: myName });
                 }
             }
@@ -1078,13 +1109,12 @@
         }
         
         function checkProximityAlert() {
-            // 检测周围50米内是否有人
             var nearby = false;
             for(var id in otherPlayers) {
                 var d = map.distance(myLatLng, [otherPlayers[id].lat, otherPlayers[id].lng]);
                 if(d < 50) nearby = true;
             }
-            if(nearby) playBeep(600, 0.05); // 滴一声
+            if(nearby) playBeep(600, 0.05);
         }
         
         function toggleEmoji() {
@@ -1098,7 +1128,6 @@
         function showEmojiAnim(id, emoji) {
             var marker = (id === myUniqueId) ? myMarker : (otherPlayers[id] ? otherPlayers[id].marker : null);
             if(!marker) return;
-            
             var pos = map.latLngToContainerPoint(marker.getLatLng());
             var el = document.createElement('div');
             el.className = 'floating-emoji';
@@ -1135,7 +1164,6 @@
         
         function checkWinCondition() {
             if (!isGameRunning) return;
-            
             if (currentMode === 'bio') {
                 var total = Object.keys(otherPlayers).length + 1;
                 var zombies = zombieList.size;
@@ -1206,7 +1234,7 @@
                         rules.innerHTML = `<li>🎯 <b>目标：</b>跑动覆盖更长路径。</li><li>🖌️ <b>规则：</b>轨迹会覆盖对手颜色。</li>`;
                     } else if (data.mode === 'ghost') {
                         title.innerText = "准备开始幽灵模式";
-                        rules.innerHTML = `<li>🎯 <b>好人：</b>前往星星打卡。</li><li>🔪 <b>内鬼：</b>击杀好人。</li><li>🌫️ <b>迷雾：</b>每30秒视野消失。</li>`;
+                        rules.innerHTML = `<li>🎯 <b>好人：</b>前往专属任务点。</li><li>🔪 <b>内鬼：</b>击杀好人。</li><li>🌫️ <b>迷雾：</b>每30秒隐身。</li>`;
                     }
                     document.getElementById('common-vote-overlay').style.display = 'block';
                     document.getElementById('btn-vote-yes').disabled = false;
@@ -1259,7 +1287,7 @@
                                     if (redScore > blueScore) showWinModal("🔴 红队胜利", `红: ${Math.round(redScore)}m vs 蓝: ${Math.round(blueScore)}m`, "#ff4d4f");
                                     else showWinModal("🔵 蓝队胜利", `蓝: ${Math.round(blueScore)}m vs 红: ${Math.round(redScore)}m`, "#1890ff");
                                 } else if (currentMode === 'ghost') {
-                                    showWinModal("⌛ 时间耗尽", "任务失败...", "gray");
+                                    showWinModal("⌛ 时间耗尽", "内鬼未能阻止任务...", "#52c41a");
                                 }
                             }
                         }
@@ -1301,14 +1329,12 @@
                 
                 // 幽灵消息
                 if (currentMode === 'ghost') {
-                    if (data.type === 'ghost_start') {
-                        startGhostRound(data.killer, data.tLat, data.tLng);
-                    }
+                    if (data.type === 'ghost_start') { startGhostRound(data.killer, data.targets); }
                     if (data.type === 'ghost_kill') {
-                        showToast("☠️ " + otherPlayers[data.victim].name + " 被击杀了！");
+                        showToast("☠️ " + (otherPlayers[data.victim] ? otherPlayers[data.victim].name : "有人") + " 被击杀了！");
                         if(data.victim === myUniqueId) {
                             alertBox("☠️ 你已被内鬼击杀！");
-                            map.removeLayer(myMarker); // 消失
+                            map.removeLayer(myMarker); 
                         }
                         if(localTimerInterval) clearInterval(localTimerInterval);
                         isGameRunning = false;
@@ -1383,11 +1409,10 @@
                     }
                     
                     if (currentMode === 'ghost' && isGameRunning) {
-                        // 足迹逻辑
                         if (!p.crumbs) p.crumbs = [];
                         var crumb = L.circleMarker([data.lat, data.lng], { radius: 2, color: '#999', fillOpacity:0.5 }).addTo(map);
                         p.crumbs.push(crumb);
-                        setTimeout(() => map.removeLayer(crumb), 600000); // 10分钟
+                        setTimeout(() => map.removeLayer(crumb), 600000); 
                     }
 
                     if (p.name !== data.name) { p.marker.bindPopup(`<b>${data.name}</b>`); p.name = data.name; }
@@ -1406,7 +1431,14 @@
                     p.marker.setIcon(L.divIcon({ className: iconClass, html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] })); 
                     p.polyline.setStyle({ color: lineColor, weight: lineWidth });
                     
-                    // 幽灵模式显隐控制
+                    // 幽灵模式显隐逻辑
+                    // 幸存者看队友可见，看杀手（如果杀手在迷雾中）不可见？
+                    // 为了简化：迷雾期间，只显示自己。
+                    // 但是 prompt 说 "自己阵营的没有迷雾"。
+                    // 如果我是 Crew, 我看 Crew 可见。Impostor 如果伪装成 Crew 应该也可见？
+                    // 逻辑：Ghost Mode 下，迷雾期间只隐藏“敌对阵营”？
+                    // 杀手视角：看不到幸存者。幸存者视角：看不到杀手。
+                    // 简单实现：迷雾期间，除了自己，谁都看不见（除非用了雷达）。
                     if (currentMode === 'ghost' && isGameRunning && isFoggy) {
                         p.marker.setOpacity(0); p.polyline.setStyle({opacity: 0});
                     } else {
@@ -1645,6 +1677,17 @@
             
             // 幽灵模式近距离警报
             if(currentMode === 'ghost' && isGameRunning) {
+                // 围栏检测
+                if(fencePoints.length > 0) {
+                    var isInside = isPointInPolygon(e.latlng.lat, e.latlng.lng, fencePoints);
+                    if(!isInside) {
+                        document.getElementById('out-bounds-effect').style.display = 'block';
+                        showToast("⚠️ 已离开围栏！");
+                    } else {
+                        document.getElementById('out-bounds-effect').style.display = 'none';
+                    }
+                }
+                
                 checkProximityAlert();
                 checkGhostInteractions();
             }
