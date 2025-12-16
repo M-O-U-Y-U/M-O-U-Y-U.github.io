@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU 共享地图 (V7.0 涂鸦战争)</title>
+    <title>MOUYU 共享地图 (V8.0 涂鸦完整版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -23,7 +23,7 @@
             flex-direction: column; color: white;
         }
         .dialog-box {
-            background: white; padding: 25px; border-radius: 16px; width: 85%; max-width: 340px;
+            background: white; padding: 25px; border-radius: 16px; width: 85%; max-width: 360px;
             text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
             animation: popUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             color: #333; position: relative;
@@ -129,17 +129,14 @@
         .emoji-marker-icon { position: relative; display: flex; justify-content: center; align-items: center; background: white; border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.3); border: 2px solid white; font-size: 24px; transition: all 0.3s ease; }
         .my-icon-style { border-color: #3388ff; z-index: 1000 !important; }
         .other-icon-style { border-color: #ff4d4f; }
+        .zombie-icon-style { border-color: #520339; background: #2a0000; color: red; animation: shake 1s infinite; z-index: 2000 !important;}
+        .turf-red-icon { border-color: #ff4d4f !important; box-shadow: 0 0 10px #ff4d4f !important; z-index: 1500 !important; }
+        .turf-blue-icon { border-color: #1890ff !important; box-shadow: 0 0 10px #1890ff !important; z-index: 1500 !important; }
+        
         .heading-arrow { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #3388ff; z-index: -1; display: none; }
         .status-bubble { background: white; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border-radius: 4px; padding: 2px 6px; font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; }
         .leaflet-tooltip-bottom:before { display: none; }
         
-        /* 🧟‍♂️ 生化模式图标 */
-        .zombie-icon-style { border-color: #520339; background: #2a0000; color: red; animation: shake 1s infinite; z-index: 2000 !important;}
-        
-        /* 🏴 涂鸦模式图标 */
-        .turf-red-icon { border-color: #ff4d4f !important; box-shadow: 0 0 10px #ff4d4f !important; z-index: 1500 !important; }
-        .turf-blue-icon { border-color: #1890ff !important; box-shadow: 0 0 10px #1890ff !important; z-index: 1500 !important; }
-
         .flag-icon { font-size: 30px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); animation: bounce 1s infinite; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
@@ -164,9 +161,7 @@
         .panel-timer { color: #fff; font-family: monospace; font-size: 16px; border-right: 1px solid #666; padding-right: 15px; }
         
         /* 涂鸦模式比分条 */
-        .turf-score-bar {
-            width: 200px; height: 10px; background: #333; border-radius: 5px; overflow: hidden; display: flex;
-        }
+        .turf-score-bar { width: 200px; height: 10px; background: #333; border-radius: 5px; overflow: hidden; display: flex; }
         .score-red { height: 100%; background: #ff4d4f; width: 50%; transition: width 0.5s; }
         .score-blue { height: 100%; background: #1890ff; width: 50%; transition: width 0.5s; }
         
@@ -263,36 +258,40 @@
         </div>
     </div>
 
-    <div id="bio-vote-overlay" class="overlay-mask" style="display: none;">
+    <div id="common-vote-overlay" class="overlay-mask" style="display: none;">
         <div class="dialog-box" style="max-width: 360px;">
             <div style="font-size: 30px; margin-bottom: 10px;">🗳️ 游戏投票</div>
-            <div class="dialog-title">准备开始生化模式</div>
-            <ul class="rules-list">
-                <li>🎯 <b>目标：</b>幸存者存活 或 僵尸感染全员。</li>
-                <li>🧟 <b>感染：</b>距离 < 10米 自动感染。</li>
-                <li>⚠️ <b>规则：</b>必须在电子围栏内活动。</li>
-            </ul>
+            <div class="dialog-title" id="vote-title">准备开始</div>
+            
+            <ul class="rules-list" id="vote-rules">
+                </ul>
+
             <div style="margin-bottom: 15px; font-size: 14px; font-weight: bold; color: #1890ff;">
                 ✅ 准备状态：<span id="vote-count">0</span>
             </div>
+
             <div id="voter-btns" style="display: flex; gap: 10px;">
-                <button class="action-btn btn-gray" onclick="document.getElementById('bio-vote-overlay').style.display='none'">关闭</button>
+                <button class="action-btn btn-gray" onclick="document.getElementById('common-vote-overlay').style.display='none'">关闭</button>
                 <button id="btn-vote-yes" class="action-btn btn-green" onclick="castVote()">🙋‍♂️ 我准备好了</button>
             </div>
+
             <div id="admin-controls" class="admin-controls-box">
                 <div style="font-size:12px; color:#666; margin-bottom:5px; font-weight:bold;">📋 游戏设置 (仅房主)</div>
                 <div class="setting-field">
-                    <span>⏱️ 生存时间:</span>
+                    <span>⏱️ 游戏时长:</span>
                     <input type="number" id="custom-game-time" value="5" min="1" max="60" class="setting-input">分
                 </div>
-                <div class="setting-field">
+                
+                <div class="setting-field" id="setting-zombie-row" style="display:none;">
                     <span>🦠 初始母体:</span>
                     <input type="number" id="custom-zombie-num" value="1" min="1" max="10" class="setting-input">人
                 </div>
+                
                 <div style="margin-bottom:10px;">
-                    <button id="draw-fence-btn" class="action-btn btn-orange" onclick="toggleDrawFence()">✏️ 划定游戏范围</button>
+                    <button id="draw-fence-btn" class="action-btn btn-orange" onclick="toggleDrawFence()">✏️ 划定游戏范围 (可选)</button>
                     <div id="fence-status" style="font-size:11px; color:#666; margin-top:2px;">未设置范围</div>
                 </div>
+                
                 <button id="admin-start-btn" class="action-btn btn-red" disabled onclick="finalStartGame()">等待全员投票...</button>
             </div>
         </div>
@@ -300,7 +299,7 @@
 
     <div id="countdown-overlay" class="countdown-overlay">
         <div class="count-number" id="countdown-num">10</div>
-        <div class="count-text" id="countdown-text">寻找掩体...</div>
+        <div class="count-text" id="countdown-text">准备开始...</div>
     </div>
     
     <div id="win-overlay" class="win-modal">
@@ -312,14 +311,17 @@
     <div id="infection-effect" class="infection-overlay"></div>
     <div id="out-bounds-effect" class="out-of-bounds-overlay"></div>
 
-    <div id="bio-status-bar" class="game-status-panel">
-        <div class="bio-timer" id="game-timer">00:00</div>
+    <div id="bio-status-bar" class="game-status-panel" style="display: none;">
+        <div class="panel-timer" id="bio-timer">00:00</div>
         <div style="margin-left:10px; color:#52c41a">🛡️ <span id="survivor-count">0</span></div>
         <div style="margin-left:10px; color:#ff4d4f">🧟‍♂️ <span id="zombie-count">0</span></div>
     </div>
 
-    <div id="turf-status-bar" class="game-status-panel" style="flex-direction: column; align-items: center; gap: 5px;">
-        <div style="font-size:12px; color:#ccc;">🚩 领地积分 (米)</div>
+    <div id="turf-status-bar" class="game-status-panel" style="display: none; flex-direction: column; align-items: center; gap: 5px;">
+        <div style="display:flex; justify-content:space-between; width:100%; font-size:12px; color:#ccc;">
+            <span>🚩 领地积分</span>
+            <span id="turf-timer" style="color:white; font-family:monospace;">00:00</span>
+        </div>
         <div class="turf-score-bar">
             <div id="bar-red" class="score-red"></div>
             <div id="bar-blue" class="score-blue"></div>
@@ -535,9 +537,9 @@
         // 生化
         var isZombie = false; 
         var zombieList = new Set();
+        var voteSet = new Set(); 
         var gameDurationSeconds = 300; 
         var localTimerInterval = null;
-        var voteSet = new Set();
         
         // 围栏
         var fencePoints = [];
@@ -658,7 +660,7 @@
             }
             
             var newTopic = getTopic(room);
-            resetGameState(); // 重置游戏状态
+            resetGameState(); 
 
             if (currentTopic && client.connected) {
                 client.unsubscribe(currentTopic);
@@ -668,7 +670,7 @@
                 }
                 otherPlayers = {}; updatePlayerList();
                 if(currentFlag) { map.removeLayer(currentFlag); currentFlag = null; }
-                if(myPolyline) { map.removeLayer(myPolyline); myPolyline = null; } // 清除自己轨迹
+                if(myPolyline) { map.removeLayer(myPolyline); myPolyline = null; } 
                 document.getElementById('chat-messages').innerHTML = '<div class="chat-msg-row" style="color:#999; font-style:italic;">已切换房间...</div>';
             }
             currentTopic = newTopic;
@@ -713,8 +715,9 @@
                 document.getElementById('bio-status-bar').style.display = 'flex';
                 showToast("⚠️ 房间已切换为【生化危机模式】");
             } else if (mode === 'turf') {
+                document.getElementById('init-vote-btn').style.display = 'block';
                 document.getElementById('turf-status-bar').style.display = 'flex';
-                document.getElementById('turf-team-overlay').style.display = 'flex'; // 强制选队
+                document.getElementById('turf-team-overlay').style.display = 'flex';
                 showToast("⚠️ 房间已切换为【涂鸦战争模式】");
             }
         }
@@ -752,9 +755,15 @@
             document.getElementById('infection-effect').style.display = 'none';
             document.getElementById('out-bounds-effect').style.display = 'none';
             document.getElementById('countdown-overlay').style.display = 'none';
-            document.getElementById('bio-vote-overlay').style.display = 'none';
+            document.getElementById('common-vote-overlay').style.display = 'none';
             document.getElementById('win-overlay').style.display = 'none';
             document.getElementById('turf-team-overlay').style.display = 'none';
+            
+            // 清除所有人（包括自己）的轨迹线，重置游戏
+            if(myPolyline) { map.removeLayer(myPolyline); myPolyline = null; }
+            for(var id in otherPlayers) {
+                if(otherPlayers[id].polyline) { map.removeLayer(otherPlayers[id].polyline); otherPlayers[id].polyline = null; }
+            }
             
             myCurrentAvatar = document.getElementById('my-avatar-input').value || "😼";
             myCurrentStatus = document.getElementById('my-status-input').value || "";
@@ -784,8 +793,6 @@
                 document.getElementById('my-name-input').style.color = "#1890ff";
             }
             updateMyMarkerVisuals();
-            // 清除旧轨迹，开始新颜色
-            if(myPolyline) { map.removeLayer(myPolyline); myPolyline = null; }
             publishData({ type: 'turf_join', team: team, id: myUniqueId });
         }
         
@@ -857,12 +864,32 @@
         }
 
         // ==========================
-        // 🧟‍♂️ 生化模式逻辑
+        // 🗳️ 通用投票与开始逻辑
         // ==========================
         
         function initiateVote() {
-            if(currentMode !== 'bio') return;
-            publishData({ type: 'vote_init', initiator: myName });
+            // 打开投票 UI，根据模式更新内容
+            var title = document.getElementById('vote-title');
+            var rules = document.getElementById('vote-rules');
+            var zRow = document.getElementById('setting-zombie-row');
+            
+            rules.innerHTML = "";
+            zRow.style.display = "none";
+            
+            if(currentMode === 'bio') {
+                title.innerText = "准备开始生化模式";
+                zRow.style.display = "flex";
+                rules.innerHTML = `<li>🎯 <b>目标：</b>幸存者存活 或 僵尸感染全员。</li>
+                                   <li>🧟 <b>感染：</b>距离 < 10米 自动感染。</li>
+                                   <li>⚠️ <b>规则：</b>必须在电子围栏内活动。</li>`;
+            } else if (currentMode === 'turf') {
+                title.innerText = "准备开始涂鸦战争";
+                rules.innerHTML = `<li>🎯 <b>目标：</b>跑动覆盖更长路径。</li>
+                                   <li>🖌️ <b>规则：</b>轨迹会覆盖对手颜色。</li>
+                                   <li>⚠️ <b>限制：</b>出界无法涂色。</li>`;
+            }
+            
+            publishData({ type: 'vote_init', initiator: myName, mode: currentMode });
         }
         
         function castVote() {
@@ -872,30 +899,42 @@
         }
         
         function finalStartGame() {
-            document.getElementById('bio-vote-overlay').style.display = 'none';
+            document.getElementById('common-vote-overlay').style.display = 'none';
             var mins = document.getElementById('custom-game-time').value;
             var numZombies = document.getElementById('custom-zombie-num').value;
             
             var duration = (parseInt(mins) || 5) * 60;
             var zCount = parseInt(numZombies) || 1;
             
+            // 广播开始信号
             publishData({ type: 'game_countdown', count: 10 });
             
             setTimeout(function() {
-                var candidates = Object.keys(otherPlayers);
-                candidates.push(myUniqueId);
+                // 清理所有人的轨迹
+                publishData({ type: 'sys_clear_map' });
                 
-                var targetIds = [];
-                for(var i=0; i<zCount && candidates.length > 0; i++) {
-                    var idx = Math.floor(Math.random() * candidates.length);
-                    targetIds.push(candidates[idx]);
-                    candidates.splice(idx, 1); 
+                // 生化模式：选僵尸
+                if(currentMode === 'bio') {
+                    var candidates = Object.keys(otherPlayers);
+                    candidates.push(myUniqueId);
+                    var targetIds = [];
+                    for(var i=0; i<zCount && candidates.length > 0; i++) {
+                        var idx = Math.floor(Math.random() * candidates.length);
+                        targetIds.push(candidates[idx]);
+                        candidates.splice(idx, 1); 
+                    }
+                    publishData({ type: 'game_infect_batch', targets: targetIds });
                 }
                 
-                publishData({ type: 'game_infect_batch', targets: targetIds });
+                // 启动游戏计时
                 publishData({ type: 'game_start_timer', timestamp: Date.now(), duration: duration });
+                
             }, 10000);
         }
+
+        // ==========================
+        // 🎮 游戏行为逻辑
+        // ==========================
 
         function becomeZombie() {
             if(isZombie) return;
@@ -915,20 +954,24 @@
         function updateTimerDisplay(secondsLeft) {
             var m = Math.floor(secondsLeft / 60);
             var s = Math.floor(secondsLeft % 60);
-            document.getElementById('game-timer').innerText = 
-                (m < 10 ? "0"+m : m) + ":" + (s < 10 ? "0"+s : s);
+            var str = (m < 10 ? "0"+m : m) + ":" + (s < 10 ? "0"+s : s);
+            document.getElementById('bio-timer').innerText = str;
+            document.getElementById('turf-timer').innerText = str;
         }
         
         function checkWinCondition() {
             if (!isGameRunning) return;
-            var total = Object.keys(otherPlayers).length + 1;
-            var zombies = zombieList.size;
-            var survivors = total - zombies;
             
-            if (survivors === 0 && zombies > 0) {
-                if(localTimerInterval) clearInterval(localTimerInterval);
-                isGameRunning = false; 
-                showWinModal("🧟‍♂️ 僵尸获胜", "全员感染，无人生还", "red");
+            if (currentMode === 'bio') {
+                var total = Object.keys(otherPlayers).length + 1;
+                var zombies = zombieList.size;
+                var survivors = total - zombies;
+                
+                if (survivors === 0 && zombies > 0) {
+                    if(localTimerInterval) clearInterval(localTimerInterval);
+                    isGameRunning = false; 
+                    showWinModal("🧟‍♂️ 僵尸获胜", "全员感染，无人生还", "red");
+                }
             }
         }
         
@@ -975,15 +1018,11 @@
                 }
                 if (data.type === 'sys_game_stop') {
                     resetGameState();
-                    // 保持在当前模式下，只是重置游戏进度
-                    // 但为了彻底重置，我们切回 Normal 也可以，或者就保持 UI 
-                    // 这里为了简单，如果是在 Bio 房间，重置后依然保留 Bio 界面等待下一局
-                    // 但如果是 V6.0 逻辑，房主已经选了模式，所以重置应该只重置变量
-                    // 我们这里重新 switch 一次确保 UI 正确
-                    // 注意：因为 resetGameState 把 mode 设为 normal 了，所以这里需要恢复
-                    // 为了简化，我们假设房主需要重新发起（或者保持模式）
-                    // 最好的体验是：保留在 Bio 模式，等待投票
-                    // 重新从 server state 获取模式比较复杂，简单处理：
+                    // 保持模式，等待下一局
+                    // 但由于resetGameState把mode重置了，这里我们需要恢复到刚才的模式?
+                    // 或者更简单：重置后就是等待房主再次发起。
+                    // 为了体验连贯，我们仅仅重置游戏数据，但UI保持在模式内？
+                    // 现在的逻辑是彻底重置回Normal，这样最安全，防止状态错乱。
                     showToast("⛔ 游戏已重置");
                     return;
                 }
@@ -991,12 +1030,35 @@
                     updateFenceVisuals(data.points);
                     return;
                 }
+                if (data.type === 'sys_clear_map') {
+                    // 清空地图轨迹
+                    if(myPolyline) myPolyline.setLatLngs([]);
+                    for(var id in otherPlayers) {
+                        if(otherPlayers[id].polyline) otherPlayers[id].polyline.setLatLngs([]);
+                    }
+                    redScore = 0; blueScore = 0;
+                    updateTurfScoreDisplay();
+                    return;
+                }
                 
-                // --- 投票 ---
+                // --- 🗳️ 投票逻辑 ---
                 if (data.type === 'vote_init') {
                     voteSet.clear();
                     document.getElementById('vote-count').innerText = "0";
-                    document.getElementById('bio-vote-overlay').style.display = 'block';
+                    // 根据mode更新UI文字 (虽然 initiateVote 已经做了，但接收者也要做)
+                    var title = document.getElementById('vote-title');
+                    var rules = document.getElementById('vote-rules');
+                    var zRow = document.getElementById('setting-zombie-row');
+                    rules.innerHTML = ""; zRow.style.display = "none";
+                    if(data.mode === 'bio') {
+                        title.innerText = "准备开始生化模式"; zRow.style.display = "flex";
+                        rules.innerHTML = `<li>🎯 <b>目标：</b>幸存者存活 或 僵尸感染全员。</li><li>🧟 <b>感染：</b>距离 < 10米 自动感染。</li>`;
+                    } else if (data.mode === 'turf') {
+                        title.innerText = "准备开始涂鸦战争";
+                        rules.innerHTML = `<li>🎯 <b>目标：</b>跑动覆盖更长路径。</li><li>🖌️ <b>规则：</b>轨迹会覆盖对手颜色。</li>`;
+                    }
+
+                    document.getElementById('common-vote-overlay').style.display = 'block';
                     document.getElementById('btn-vote-yes').disabled = false;
                     document.getElementById('btn-vote-yes').innerText = "🙋‍♂️ 我准备好了";
                     
@@ -1015,7 +1077,7 @@
                     var btn = document.getElementById('admin-start-btn');
                     if (voteSet.size >= totalPlayers) {
                         btn.disabled = false;
-                        btn.innerText = "🔥 确认最终开始";
+                        btn.innerText = "🔥 确认最终开始 (" + voteSet.size + "/" + totalPlayers + ")";
                     } else {
                         btn.disabled = true;
                         btn.innerText = "等待全员准备 (" + voteSet.size + "/" + totalPlayers + ")";
@@ -1023,54 +1085,57 @@
                     return;
                 }
 
-                // --- 🎮 生化模式 ---
-                if (currentMode === 'bio') {
-                    if (data.type === 'game_countdown') {
-                        document.getElementById('bio-vote-overlay').style.display = 'none';
-                        var count = data.count;
-                        var overlay = document.getElementById('countdown-overlay');
-                        var numEl = document.getElementById('countdown-num');
-                        var txtEl = document.getElementById('countdown-text');
-                        overlay.style.display = 'flex';
-                        numEl.innerText = count;
-                        isGameRunning = true;
-                        document.getElementById('force-stop-btn').style.display = 'block'; 
-                        
-                        var timer = setInterval(function() {
-                            count--;
-                            numEl.innerText = count;
-                            if(count <= 0) {
-                                clearInterval(timer);
-                                overlay.style.display = 'none';
-                            } else if (count <= 3) {
-                                txtEl.innerText = "母体即将出现...";
-                                numEl.style.color = "red";
-                            }
-                        }, 1000);
-                        return;
-                    }
+                // --- 游戏通用消息 ---
+                if (data.type === 'game_countdown') {
+                    document.getElementById('common-vote-overlay').style.display = 'none';
+                    var count = data.count;
+                    var overlay = document.getElementById('countdown-overlay');
+                    var numEl = document.getElementById('countdown-num');
+                    overlay.style.display = 'flex';
+                    numEl.innerText = count;
+                    isGameRunning = true;
+                    document.getElementById('force-stop-btn').style.display = 'block'; 
                     
-                    if (data.type === 'game_start_timer') {
-                        if(localTimerInterval) clearInterval(localTimerInterval);
-                        var serverStart = data.timestamp;
-                        var duration = data.duration || 300; 
-                        
-                        localTimerInterval = setInterval(function() {
-                            var elapsed = Math.floor((Date.now() - serverStart) / 1000);
-                            var remain = duration - elapsed;
-                            if (remain <= 0) {
-                                remain = 0;
-                                clearInterval(localTimerInterval);
-                                if (isGameRunning) {
+                    var timer = setInterval(function() {
+                        count--;
+                        numEl.innerText = count;
+                        if(count <= 0) {
+                            clearInterval(timer);
+                            overlay.style.display = 'none';
+                        }
+                    }, 1000);
+                    return;
+                }
+                
+                if (data.type === 'game_start_timer') {
+                    if(localTimerInterval) clearInterval(localTimerInterval);
+                    var serverStart = data.timestamp;
+                    var duration = data.duration || 300; 
+                    
+                    localTimerInterval = setInterval(function() {
+                        var elapsed = Math.floor((Date.now() - serverStart) / 1000);
+                        var remain = duration - elapsed;
+                        if (remain <= 0) {
+                            remain = 0;
+                            clearInterval(localTimerInterval);
+                            if (isGameRunning) {
+                                isGameRunning = false;
+                                // 判定胜利
+                                if (currentMode === 'bio') {
                                     if(!isZombie) showWinModal("🛡️ 幸存者胜利", "坚守到了最后！", "#52c41a");
                                     else showWinModal("🛡️ 幸存者胜利", "僵尸行动失败...", "#52c41a");
-                                    isGameRunning = false;
+                                } else if (currentMode === 'turf') {
+                                    if (redScore > blueScore) showWinModal("🔴 红队胜利", `红队: ${Math.round(redScore)}m vs 蓝队: ${Math.round(blueScore)}m`, "#ff4d4f");
+                                    else showWinModal("🔵 蓝队胜利", `蓝队: ${Math.round(blueScore)}m vs 红队: ${Math.round(redScore)}m`, "#1890ff");
                                 }
                             }
-                            updateTimerDisplay(remain);
-                        }, 1000);
-                    }
+                        }
+                        updateTimerDisplay(remain);
+                    }, 1000);
+                }
 
+                // 生化特有
+                if (currentMode === 'bio') {
                     if (data.type === 'game_infect_batch') {
                         var targets = data.targets || [];
                         targets.forEach(function(tid) {
@@ -1085,9 +1150,7 @@
                         showToast("⚠️ 母体已出现，快跑！");
                         updateBioStats();
                         checkWinCondition();
-                        return;
                     }
-
                     if (data.type === 'player_infected') {
                         zombieList.add(data.id);
                         if (data.id !== myUniqueId && otherPlayers[data.id]) {
@@ -1098,42 +1161,27 @@
                         }
                         updateBioStats();
                         checkWinCondition();
-                        return;
                     }
                 }
                 
-                // --- 🏴 涂鸦模式 ---
+                // 涂鸦特有
                 if (currentMode === 'turf') {
                     if (data.type === 'turf_join') {
-                        // 某人加入了红/蓝队，我们可以做个提示
-                        return;
+                        // 记录队伍
+                        if(otherPlayers[data.id]) otherPlayers[data.id].team = data.team;
                     }
                 }
 
-                // 聊天与更新
+                // 常规消息
                 if (data.type === 'chat') { 
                     if (data.senderId !== myUniqueId) appendChatMsg(data.senderName, data.text, false); 
-                    return; 
-                }
-                
-                if (data.type === 'flag_update') {
-                    if (data.action === 'add') {
-                        if (currentFlag) map.removeLayer(currentFlag);
-                        var flagIcon = L.divIcon({ className: 'flag-icon', html: '🏁', iconSize: [30, 40], iconAnchor: [15, 40] });
-                        currentFlag = L.marker([data.lat, data.lng], { icon: flagIcon }).addTo(map)
-                            .bindPopup(`<b>🏁 集合点</b><br>发起: ${data.senderName}<br><button onclick="removeFlag()">❌ 取消</button>`).openPopup();
-                    } else if (data.action === 'remove') { 
-                        if (currentFlag) { map.removeLayer(currentFlag); currentFlag = null; } 
-                    }
-                    return;
                 }
                 
                 if (data.id === myUniqueId) return;
                 
+                // 位置更新
                 var now = Date.now(); 
                 var pAvatar = data.avatar || "📍"; 
-                var pStatus = data.status || ""; 
-                var pName = data.name || "未知";
                 
                 if (currentMode === 'bio' && zombieList.has(data.id)) { pAvatar = "🧟‍♂️"; }
 
@@ -1147,9 +1195,9 @@
 
                     var icon = L.divIcon({ className: iconClass, html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
                     var newMarker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
-                    if(pStatus) newMarker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' });
+                    if(data.status) newMarker.bindTooltip(data.status, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' });
                     
-                    newMarker.bindPopup(`<b>${pName}</b>`);
+                    newMarker.bindPopup(`<b>${data.name}</b>`);
                     var lineColor = '#ff4d4f';
                     var lineWidth = 4;
                     var lineOpacity = 0.6;
@@ -1163,7 +1211,7 @@
                     var newPolyline = L.polyline([], { color: lineColor, weight: lineWidth, opacity: lineOpacity, lineCap: 'round' }).addTo(map); 
                     newPolyline.addLatLng([data.lat, data.lng]);
                     
-                    otherPlayers[data.id] = { marker: newMarker, polyline: newPolyline, lastSeen: now, lat: data.lat, lng: data.lng, avatar: pAvatar, status: pStatus, name: pName, team: data.team };
+                    otherPlayers[data.id] = { marker: newMarker, polyline: newPolyline, lastSeen: now, lat: data.lat, lng: data.lng, avatar: pAvatar, status: data.status, name: data.name, team: data.team };
                 } else {
                     var p = otherPlayers[data.id]; 
                     var lastLat = p.lat; var lastLng = p.lng;
@@ -1179,17 +1227,21 @@
                     
                     p.lastSeen = now; p.lat = data.lat; p.lng = data.lng;
                     
-                    // 涂鸦积分计算
-                    if (currentMode === 'turf' && data.team) {
+                    // 涂鸦积分 (其他人走的)
+                    if (currentMode === 'turf' && data.team && isGameRunning) {
                         var dist = map.distance([lastLat, lastLng], [data.lat, data.lng]);
-                        if(dist < 50) { // 防止漂移暴增
+                        // 只有在围栏内才积分
+                        var isInside = true;
+                        if(fencePoints.length > 0) isInside = isPointInPolygon(data.lat, data.lng, fencePoints);
+                        
+                        if(dist < 50 && isInside) { 
                             if (data.team === 'red') redScore += dist;
                             else if (data.team === 'blue') blueScore += dist;
                             updateTurfScoreDisplay();
                         }
                     }
 
-                    if (p.name !== pName) { p.marker.bindPopup(`<b>${pName}</b>`); p.name = pName; }
+                    if (p.name !== data.name) { p.marker.bindPopup(`<b>${data.name}</b>`); p.name = data.name; }
                     
                     // 动态更新外观
                     var iconClass = 'emoji-marker-icon other-icon-style';
@@ -1209,9 +1261,9 @@
                     p.marker.setIcon(L.divIcon({ className: iconClass, html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] })); 
                     p.polyline.setStyle({ color: lineColor, weight: lineWidth });
                     
-                    if (p.status !== pStatus) { 
-                        p.status = pStatus; 
-                        pStatus ? p.marker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }) : p.marker.unbindTooltip(); 
+                    if (p.status !== data.status) { 
+                        p.status = data.status; 
+                        p.status ? p.marker.bindTooltip(p.status, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }) : p.marker.unbindTooltip(); 
                     }
                 }
                 updatePlayerList();
@@ -1399,12 +1451,22 @@
                 if(myTeam === 'blue') lineColor = '#1890ff';
                 
                 // 涂鸦积分 (自己走的)
-                if(myTeam && isGameRunning) { // 涂鸦其实不依赖GameRunning，随时可画，或者限制一下
+                if(myTeam && isGameRunning) {
                      var dist = map.distance([lastLat, lastLng], [e.latlng.lat, e.latlng.lng]);
-                     if(dist < 50) {
+                     // 1. 电子围栏检测
+                     var isInside = true;
+                     if(fencePoints.length > 0) isInside = isPointInPolygon(e.latlng.lat, e.latlng.lng, fencePoints);
+                     
+                     if(dist < 50 && isInside) {
                          if(myTeam === 'red') redScore += dist;
                          if(myTeam === 'blue') blueScore += dist;
                          updateTurfScoreDisplay();
+                     } else if (!isInside) {
+                         // 出界提示
+                         document.getElementById('out-bounds-effect').style.display = 'block';
+                         showToast("⚠️ 已出界！停止涂色！");
+                     } else {
+                         document.getElementById('out-bounds-effect').style.display = 'none';
                      }
                 }
             }
