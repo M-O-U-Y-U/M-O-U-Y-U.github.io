@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU 共享地图 (V4.1 修复版)</title>
+    <title>MOUYU 共享地图 (V4.2 修复版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -151,10 +151,11 @@
         /* ========================
            🧟‍♂️ 生化模式特有样式
            ======================== */
+        /* 修复：默认不显示，进入模式才 flex */
         .bio-status-panel {
             position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 30px;
-            font-size: 14px; font-weight: bold; z-index: 2000; display: none;
+            font-size: 14px; font-weight: bold; z-index: 2000; display: none; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #555; align-items: center; gap: 15px;
         }
         .bio-timer { color: #fff; font-family: monospace; font-size: 16px; border-right: 1px solid #666; padding-right: 15px; }
@@ -285,7 +286,7 @@
     
     <div id="infection-effect" class="infection-overlay"></div>
 
-    <div id="bio-status-bar" class="bio-status-panel" style="display: flex;">
+    <div id="bio-status-bar" class="bio-status-panel">
         <div class="bio-timer" id="game-timer">00:00</div>
         <div>🛡️ <span id="survivor-count" class="bio-count-val">0</span></div>
         <div>🧟‍♂️ <span id="zombie-count" class="bio-zombie-val">0</span></div>
@@ -492,16 +493,18 @@
             L.control.layers({ "🛰️ 卫星图": satellite, "🗺️ OSM地图": osmMap, "🌑 夜间模式": darkMap, "☀️ 简洁图": streetMap }).addTo(map);
             L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
             
-            // ID生成
+            // 修复：生成纯随机短ID，避免"uid17"重复问题
             myUniqueId = SafeStorage.getItem('my_unique_id');
-            if (!myUniqueId) {
-                myUniqueId = "uid_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+            if (!myUniqueId || myUniqueId.startsWith("uid_")) {
+                // 生成一个6位随机大写字母+数字的组合
+                myUniqueId = Math.random().toString(36).substr(2, 6).toUpperCase();
                 SafeStorage.setItem('my_unique_id', myUniqueId);
             }
+            
             myName = SafeStorage.getItem('my_nickname');
             if (!myName) { myName = "队友" + Math.floor(Math.random() * 100); }
             document.getElementById('my-name-input').value = myName;
-            document.getElementById('my-status-text').innerText = "ID: " + myUniqueId.substring(0,6);
+            document.getElementById('my-status-text').innerText = "ID: " + myUniqueId;
             
             // MQTT 连接
             client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
@@ -511,7 +514,7 @@
                 // 不自动进房，等待手动操作
             });
             client.on('offline', function() { updateNetStatus(false); });
-            client.on('reconnect', function() { updateNetStatus(true); }); // 修复：重连时刷新状态
+            client.on('reconnect', function() { updateNetStatus(true); });
             client.on('message', handleMqttMessage);
             
             map.on('click', onMapClick);
@@ -547,7 +550,7 @@
             if(isOnline) {
                 dot.className = "net-status-dot status-online";
                 // 修复：重连后把文字恢复
-                document.getElementById('my-status-text').innerText = "ID: " + myUniqueId.substring(0,6);
+                document.getElementById('my-status-text').innerText = "ID: " + myUniqueId;
             } else {
                 dot.className = "net-status-dot status-offline";
                 document.getElementById('my-status-text').innerText = "连接断开...";
