@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU的共享地图 (最终修复版)</title>
+    <title>MOUYU的共享地图 (最终修正版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -227,11 +227,12 @@
 
     <script>
         // ============================================
-        // 🔐 1. 网站门禁逻辑 (已修正)
+        // 🔐 1. 网站门禁逻辑 (已修正拼写错误)
         // ============================================
         
         // ✅ 修正：这是 '666' 对应的正确 SHA256 哈希值
-        var SITE_HASH = "c7c616822f366fb1b5e0756af498cc11d2c0862edcb32ca65882f622ff39de1b"; 
+        // 之前我把 'c7e' 看成了 'c7c'，导致一直不匹配
+        var SITE_HASH = "c7e616822f366fb1b5e0756af498cc11d2c0862edcb32ca65882f622ff39de1b"; 
         var isSystemUnlocked = false;
 
         function checkSitePassword() {
@@ -245,7 +246,7 @@
             
             var inputHash = CryptoJS.SHA256(input).toString();
 
-            // 调试用：如果还进不去，请查看控制台输出
+            // 调试用：这次应该一致了
             console.log("输入内容:", input);
             console.log("计算哈希:", inputHash);
             console.log("目标哈希:", SITE_HASH);
