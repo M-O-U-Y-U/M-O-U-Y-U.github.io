@@ -37,82 +37,44 @@
             width: 100%; padding: 12px; background: #1890ff; color: white; border: none;
             border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;
         }
+        .login-btn:active { background: #096dd9; transform: scale(0.98); }
 
         /* ========================
-           🕹️ 游戏相关 UI
+           📱 2. 移动端 UI 优化
            ======================== */
-        .game-btn { position: absolute; bottom: 200px; right: 20px; z-index: 999; width: 50px; height: 50px; border-radius: 50%; font-size: 24px; background: #722ed1; color: white; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
-        .game-btn:active { transform: scale(0.9); }
-        
-        .help-btn { position: absolute; bottom: 260px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; background: white; color: #333; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer; font-weight: bold; }
-
-        /* 面板通用样式 */
-        .modal-panel {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 320px; background: white; border-radius: 16px; padding: 20px;
-            z-index: 2000; box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: none;
-            animation: fadeIn 0.3s; max-height: 80vh; overflow-y: auto;
-        }
-        .modal-panel h3 { margin: 0 0 15px 0; text-align: center; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .close-panel-btn { margin-top: 15px; width: 100%; padding: 10px; background: #eee; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        
-        .game-option {
-            padding: 12px; border: 2px solid #eee; border-radius: 10px; margin-bottom: 10px;
-            cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s;
-        }
-        .game-option:hover { background: #f9f9f9; }
-        .game-option.active { border-color: #722ed1; background: #f9f0ff; color: #722ed1; font-weight: bold; }
-        .game-icon { font-size: 20px; }
-
-        .help-content p { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 8px; }
-        .help-tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; margin-right: 5px; }
-        .tag-default { background: #1890ff; }
-        .tag-zombie { background: #ff4d4f; }
-
-        /* 生化危机 HUD */
-        #biohazard-hud {
-            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.8); color: white; padding: 8px 15px; border-radius: 30px;
-            z-index: 1000; display: none; font-size: 14px; font-weight: bold;
-            box-shadow: 0 4px 15px rgba(255, 0, 0, 0.4); border: 2px solid #ff4d4f;
-            display: flex; gap: 15px; align-items: center; white-space: nowrap;
-        }
-        .hud-item { display: flex; align-items: center; gap: 5px; }
-        .be-zombie-btn {
-            background: #ff4d4f; border: none; color: white; padding: 4px 10px; border-radius: 15px;
-            font-size: 12px; font-weight: bold; cursor: pointer; animation: pulse 2s infinite;
-        }
-        
-        @keyframes infected-screen { 
-            0% { box-shadow: inset 0 0 0 0 rgba(255,0,0,0); }
-            50% { box-shadow: inset 0 0 50px 20px rgba(255,0,0,0.8); }
-            100% { box-shadow: inset 0 0 0 0 rgba(255,0,0,0); }
-        }
-        .infected-fx { animation: infected-screen 1s ease-out; }
-
-        /* 通用UI */
         .map-btn {
             background: white; border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             padding: 8px 12px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; transition: all 0.2s;
             display: flex; align-items: center; justify-content: center; gap: 5px;
         }
+        .map-btn:active { background: #f0f0f0; transform: scale(0.95); }
         .map-btn.active { background: #e6f7ff; color: #1890ff; border: 1px solid #1890ff; }
+
         .locate-btn { position: absolute; bottom: 40px; right: 20px; z-index: 999; padding: 12px 20px; border-radius: 50px; }
         .follow-btn { position: absolute; bottom: 100px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
         .measure-btn { position: absolute; bottom: 150px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
 
+        /* 面板基础样式 */
         .player-list-panel {
             position: absolute; top: 20px; right: 20px; z-index: 1000;
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
             padding: 15px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            width: 260px; max-height: 70vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.5);
+            width: 260px; /* 稍微加宽一点适配房间输入 */
+            max-height: 70vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.5);
             transition: all 0.3s ease;
         }
+        /* 手机端面板适配 */
         @media (max-width: 600px) {
-            .player-list-panel { width: 200px; top: 10px; right: 10px; padding: 10px; }
-            .locate-btn { bottom: 30px; right: 10px; } .follow-btn { bottom: 90px; right: 10px; } .measure-btn { bottom: 135px; right: 10px; } 
-            .game-btn { bottom: 185px; right: 10px; width: 40px; height: 40px; font-size: 20px; }
-            .help-btn { bottom: 235px; right: 10px; width: 36px; height: 36px; font-size: 16px; }
+            .player-list-panel {
+                width: 200px; /* 手机上窄一点 */
+                top: 10px; right: 10px;
+                padding: 10px;
+            }
+            .locate-btn { bottom: 30px; right: 10px; padding: 10px 15px; font-size: 12px; }
+            .follow-btn { bottom: 90px; right: 10px; width: 36px; height: 36px; }
+            .measure-btn { bottom: 135px; right: 10px; width: 36px; height: 36px; }
+            
+            /* 房间设置区域在手机上的优化 */
             .room-setting-box { padding: 6px !important; }
             .room-input-row { flex-direction: column; align-items: flex-start !important; gap: 4px !important; }
             .room-input-row .setting-label { width: 100% !important; margin-bottom: 2px; }
@@ -129,11 +91,17 @@
             border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             display: flex; flex-direction: column; transition: width 0.3s, transform 0.3s;
         }
-        @media (max-width: 600px) { .chat-panel { width: 70%; left: 10px; bottom: 80px; } }
+        @media (max-width: 600px) {
+            .chat-panel { width: 70%; left: 10px; bottom: 80px; }
+        }
         
         .chat-header { background: #f0f2f5; padding: 10px 12px; font-size: 12px; font-weight: bold; color: #666; display: flex; justify-content: space-between; cursor: pointer; border-radius: 12px 12px 0 0; }
+        .chat-panel.collapsed .chat-header { border-radius: 12px; }
+        .chat-content-wrapper { display: block; }
         .chat-panel.collapsed .chat-content-wrapper { display: none; }
         .chat-messages { height: 150px; overflow-y: auto; padding: 10px; font-size: 12px; background: white; }
+        .chat-msg-row { margin-bottom: 6px; line-height: 1.4; word-wrap: break-word; }
+        .chat-sender { font-weight: bold; color: #1890ff; margin-right: 4px; }
         .chat-input-area { display: flex; padding: 8px; border-top: 1px solid #eee; background: #fff; border-radius: 0 0 12px 12px; align-items: center; }
         .chat-input { flex: 1; border: 1px solid #ddd; border-radius: 4px; padding: 6px 8px; font-size: 12px; outline: none; min-width: 0; }
         .chat-send-btn { margin-left: 6px; background: #1890ff; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; white-space: nowrap; }
@@ -144,6 +112,7 @@
         .status-input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 6px; font-size: 12px; background: #f9f9f9; }
         .id-input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 6px; font-size: 12px; background: #f9f9f9; font-weight: bold; color: #333; }
         .gpx-btn { width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 8px; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px; }
+
         .view-switch { display: flex; gap: 5px; background: #eee; padding: 2px; border-radius: 6px; flex: 1; }
         .view-opt { flex: 1; text-align: center; font-size: 11px; padding: 4px 0; cursor: pointer; border-radius: 4px; color: #666; }
         .view-opt.active { background: white; color: #3388ff; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
@@ -156,16 +125,15 @@
         .emoji-marker-icon { position: relative; display: flex; justify-content: center; align-items: center; background: white; border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.3); border: 2px solid white; font-size: 24px; transition: all 0.3s ease; }
         .my-icon-style { border-color: #3388ff; z-index: 1000 !important; }
         .other-icon-style { border-color: #ff4d4f; }
-        .zombie-style { border-color: #ff0000 !important; background: #330000 !important; color: white !important; box-shadow: 0 0 15px rgba(255,0,0,0.8) !important; animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        
         .heading-arrow { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #3388ff; z-index: -1; display: none; }
         .flag-icon { font-size: 30px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); animation: bounce 1s infinite; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .status-bubble { background: white; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border-radius: 4px; padding: 2px 6px; font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; }
         .leaflet-tooltip-bottom:before { display: none; }
         
         .msg-bubble-container { position: absolute; bottom: 45px; left: 0; width: 100%; pointer-events: none; display: flex; flex-direction: column-reverse; align-items: flex-start; }
         .msg-bubble { background: rgba(0, 0, 0, 0.75); color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; margin-bottom: 5px; max-width: 80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: fadeUp 0.3s ease-out; margin-left: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .chat-badge { display: none; width: 8px; height: 8px; background: #ff4d4f; border-radius: 50%; margin-right: 5px; }
         .toast-tip { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity 0.5s; z-index: 2000; }
         .leaflet-control-scale { margin-bottom: 5px !important; margin-left: 10px !important; }
@@ -176,48 +144,14 @@
     <div id="login-overlay">
         <div class="login-box">
             <div style="font-size: 40px; margin-bottom: 10px;">🔒</div>
-            <div class="login-title">MOUYU Game System</div>
-            <input type="password" id="site-password" class="login-input" placeholder="输入访问密码..." onkeypress="if(event.key==='Enter') checkSitePassword()">
-            <button class="login-btn" onclick="checkSitePassword()">Enter System</button>
+            <div class="login-title">MOUYU 内部系统</div>
+            <input type="password" id="site-password" class="login-input" placeholder="请输入访问密码..." onkeypress="if(event.key==='Enter') checkSitePassword()">
+            <button class="login-btn" onclick="checkSitePassword()">解锁系统</button>
             <div id="login-error" style="color:red; font-size:12px; margin-top:10px; opacity:0; transition:opacity 0.3s;">密码错误</div>
         </div>
     </div>
 
-    <div id="toast" class="toast-tip"></div>
-
-    <button class="game-btn" onclick="toggleModal('game-menu')" title="游戏菜单">🎮</button>
-    <button class="help-btn" onclick="toggleModal('help-menu')" title="游戏说明">❓</button>
-    
-    <div class="modal-panel" id="game-menu">
-        <h3>🎮 选择游戏模式</h3>
-        <div class="game-option active" id="mode-none" onclick="switchGameMode('none')">
-            <span class="game-icon">🏳️</span> 
-            <div>默认模式<div style="font-size:10px; color:#999;">仅共享位置，无规则</div></div>
-        </div>
-        <div class="game-option" id="mode-biohazard" onclick="switchGameMode('biohazard')">
-            <span class="game-icon">🧟</span>
-            <div>生化危机<div style="font-size:10px; color:#999;">僵尸抓人，靠近感染</div></div>
-        </div>
-        <button class="close-panel-btn" onclick="toggleModal('game-menu')">关闭</button>
-    </div>
-
-    <div class="modal-panel" id="help-menu">
-        <h3>📖 游戏操作指南</h3>
-        <div class="help-content">
-            <p><span class="help-tag tag-default">默认模式</span><br>最基础的位置共享。适合朋友聚会、位置查看。没有游戏规则。</p>
-            <p><span class="help-tag tag-zombie">生化危机</span><br><b>玩法：</b>一人变身母体，追逐其他人。<br><b>感染规则：</b>当僵尸靠近人类 <b>15米</b> 内时，人类手机会震动并自动变成僵尸。</p>
-            <p><b>🚪 房间系统：</b><br>在右侧面板输入相同的【房间名+密码】即可私密联机。不同房间的人互不可见。</p>
-        </div>
-        <button class="close-panel-btn" onclick="toggleModal('help-menu')">我知道了</button>
-    </div>
-
-    <div id="biohazard-hud" style="display:none;">
-        <div class="hud-item">🧟 <span id="zombie-count">0</span></div>
-        <div class="hud-item">🏃 <span id="human-count">0</span></div>
-        <div class="hud-item" style="border-left:1px solid #666; padding-left:10px;">
-            <button class="be-zombie-btn" onclick="becomeZombie()">我要变异!</button>
-        </div>
-    </div>
+    <div id="toast" class="toast-tip">长按地图插旗 | 点击直尺测量</div>
 
     <div class="player-list-panel" id="player-panel">
         <div class="panel-header" onclick="togglePlayerPanel()">
@@ -225,6 +159,7 @@
             <div class="toggle-icon" id="player-toggle-icon">▼</div>
         </div>
         <div class="panel-content" id="player-content">
+            
             <div class="room-setting-box" style="background: #e6f7ff; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #91d5ff;">
                 <div class="user-setting-row room-input-row">
                     <span class="setting-label" style="font-weight:bold; color:#0050b3;">房间</span>
@@ -253,6 +188,10 @@
                 <div class="user-setting-row">
                     <span class="setting-label">形象</span>
                     <input type="text" id="my-avatar-input" class="avatar-input" value="😼" maxlength="2">
+                </div>
+                <div class="user-setting-row">
+                    <span class="setting-label">状态</span>
+                    <input type="text" id="my-status-input" class="status-input" placeholder="状态..." maxlength="10">
                 </div>
             </div>
             <div id="player-list-container">
@@ -293,9 +232,9 @@
 
     <script>
         // ============================================
-        // 🔐 网站门禁逻辑 (记得修改密码！)
+        // 🔐 网站门禁逻辑 (在这里修改密码！)
         // ============================================
-        var SITE_PASSWORD = "666"; // <--- 修改这里
+        var SITE_PASSWORD = "666"; // <--- 请在这里修改你的网站访问密码！
         var isSystemUnlocked = false;
 
         function checkSitePassword() {
@@ -303,7 +242,7 @@
             if (input === SITE_PASSWORD) {
                 document.getElementById('login-overlay').style.display = 'none';
                 isSystemUnlocked = true;
-                startApp(); 
+                startApp(); // 密码正确才启动地图和MQTT
             } else {
                 var err = document.getElementById('login-error');
                 err.style.opacity = 1;
@@ -312,7 +251,7 @@
         }
         
         // ============================================
-        // 🌍 全局变量
+        // 🗺️ 地图与系统核心 (被包裹在 startApp 中)
         // ============================================
         var map, client, satellite, streetMap, darkMap;
         var myUniqueId, myName;
@@ -322,33 +261,25 @@
         var isFollowing = false; var myHeading = 0; 
         var currentTopic = ""; 
         var debounceTimer = null;
-        
-        // 🕹️ 游戏变量
-        var currentGameMode = "none"; 
-        var myGameRole = "human"; 
-        var gameLoopInterval = null;
 
         function startApp() {
-            // 1. 初始化地图图层 - 完美还原初始设置
-            
-            // 卫星图组合: 影像 + 边界 + 街道线条
+            // 1. 初始化地图图层
+            darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
             satellite = L.layerGroup([
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }) 
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
             ]);
-            
-            // 备用图层
             streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB', maxZoom: 20 });
-            darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
 
-            // 2. 创建地图 - 默认使用卫星图 (satellite)，缩放4，中心中国
+            // 2. 创建地图 - ✅ 默认使用卫星图 (satellite)，并加入图层控制器
             map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [satellite], zoomControl: false });
             L.control.zoom({position: 'topleft'}).addTo(map);
-            L.control.layers({ "🛰️ 卫星图": satellite, "☀️ 街道图": streetMap, "🌑 夜间模式": darkMap }).addTo(map);
+            
+            // ✅ 改名："🌑 夜间模式" 和 "🛰️ 卫星图"
+            L.control.layers({ "🛰️ 卫星图": satellite, "🌑 夜间模式": darkMap, "☀️ 街道图": streetMap }).addTo(map);
             L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
             
-            // 用户信息
+            // 3. 用户信息
             myUniqueId = localStorage.getItem('my_unique_id');
             if (!myUniqueId) {
                 myUniqueId = "uid_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
@@ -357,121 +288,48 @@
             myName = localStorage.getItem('my_nickname');
             if (!myName) { myName = "神秘人" + Math.floor(Math.random() * 100); }
             document.getElementById('my-name-input').value = myName;
+            document.getElementById('my-status-text').innerText = "系统ID: " + myUniqueId.substring(0,8)+"...";
             
-            // 连接 MQTT
+            // 4. 连接 MQTT (只有密码正确才会执行这里)
             client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-            client.on('connect', function () { console.log('✅ MQTT Connected'); joinRoom(); });
+            client.on('connect', function () { 
+                console.log('✅ MQTT Connected'); 
+                joinRoom(); 
+            });
             client.on('message', handleMqttMessage);
             
-            // 地图事件
+            // 5. 绑定地图事件
             map.on('click', onMapClick);
             map.on('dragstart', function() { if(isFollowing) toggleFollow(); });
             map.on('contextmenu', onMapContextMenu);
             map.on('locationfound', onLocationFound);
-            
-            // 启动定位
-            locateAndShare(false); 
-            setInterval(() => locateAndShare(false), 2000); 
-            
-            // 启动游戏循环
-            gameLoopInterval = setInterval(gameLoop, 1000); 
+            map.on('locationerror', function(e) { console.log("定位中..."); });
 
+            // 6. 启动定位
+            locateAndShare(false); 
+            setInterval(() => locateAndShare(false), 3000);
+            
+            // 7. 启动清理定时器
+            setInterval(function() {
+                var now = Date.now(); var listChanged = false;
+                for (var id in otherPlayers) { if (now - otherPlayers[id].lastSeen > 10000) { map.removeLayer(otherPlayers[id].marker); if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); delete otherPlayers[id]; listChanged = true; } }
+                if(listChanged) updatePlayerList();
+            }, 2000);
+
+            // 8. 提示Toast
+            setTimeout(function(){ var t = document.getElementById('toast'); t.style.opacity = 1; setTimeout(function(){ t.style.opacity = 0; }, 3000); }, 1000);
+            
             applyViewMode();
         }
 
         // ========================
-        // 🎮 游戏逻辑引擎
-        // ========================
-        function toggleModal(id) {
-            var p = document.getElementById(id);
-            var others = document.querySelectorAll('.modal-panel');
-            others.forEach(o => { if(o.id !== id) o.style.display = 'none'; }); 
-            p.style.display = (p.style.display === 'block') ? 'none' : 'block';
-        }
-
-        function switchGameMode(mode) {
-            currentGameMode = mode;
-            // UI 更新
-            document.querySelectorAll('.game-option').forEach(el => el.classList.remove('active'));
-            document.getElementById('mode-' + mode).classList.add('active');
-            toggleModal('game-menu'); 
-
-            // 状态重置
-            myGameRole = "human";
-            updateMyMarkerVisuals();
-            
-            if (mode === 'none') {
-                showToast("已切换至：默认模式");
-                document.getElementById('biohazard-hud').style.display = 'none';
-            } else if (mode === 'biohazard') {
-                showToast("⚠️ 生化危机模式已启动！");
-                document.getElementById('biohazard-hud').style.display = 'flex';
-                triggerManualLocate();
-            }
-        }
-
-        function gameLoop() {
-            var now = Date.now();
-            var listChanged = false;
-            var zombieCount = 0;
-            var humanCount = 0;
-
-            for (var id in otherPlayers) {
-                if (now - otherPlayers[id].lastSeen > 10000) { 
-                    map.removeLayer(otherPlayers[id].marker); 
-                    if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); 
-                    delete otherPlayers[id]; 
-                    listChanged = true; 
-                    continue;
-                }
-                
-                if (otherPlayers[id].gameRole === 'zombie') zombieCount++; else humanCount++;
-
-                // --- 🧟 感染判定 ---
-                if (currentGameMode === 'biohazard' && myGameRole === 'human') {
-                    if (otherPlayers[id].gameRole === 'zombie' && myLatLng) {
-                        var dist = map.distance(myLatLng, [otherPlayers[id].lat, otherPlayers[id].lng]);
-                        if (dist < 15) { 
-                            becomeZombie("😭 被 " + otherPlayers[id].name + " 感染了！");
-                        }
-                    }
-                }
-            }
-
-            if(listChanged) updatePlayerList();
-            
-            if (myGameRole === 'zombie') zombieCount++; else humanCount++;
-            document.getElementById('zombie-count').innerText = zombieCount;
-            document.getElementById('human-count').innerText = humanCount;
-        }
-
-        function becomeZombie(reason) {
-            if (myGameRole === 'zombie') return;
-            myGameRole = 'zombie';
-            
-            document.body.classList.add('infected-fx');
-            setTimeout(() => document.body.classList.remove('infected-fx'), 1000);
-            
-            if (reason) alert(reason); else showToast("🧟 你变成了母体僵尸！去感染别人！");
-            
-            updateMyMarkerVisuals();
-            triggerManualLocate();
-        }
-
-        function showToast(msg) {
-            var t = document.getElementById('toast');
-            t.innerText = msg; t.style.opacity = 1;
-            setTimeout(function(){ t.style.opacity = 0; }, 3000);
-        }
-
-        // ========================
-        // 🏠 房间与通讯
+        // 🏠 房间逻辑
         // ========================
         function getTopic(room, pass) {
             if (!room) room = "大厅";
             var safeRoom = encodeURIComponent(room);
             var safePass = pass ? "_" + encodeURIComponent(pass) : "";
-            return 'mouyu/game/' + safeRoom + safePass; 
+            return 'mouyu/live/' + safeRoom + safePass;
         }
 
         function joinRoom() {
@@ -479,23 +337,27 @@
             var pass = document.getElementById('pass-input').value.trim();
             var newTopic = getTopic(room, pass);
 
-            if (currentTopic === newTopic) { alert("已在房间中"); return; }
+            if (currentTopic === newTopic) { alert("你已经在房间 [" + room + "] 里了"); return; }
             if (currentTopic && client.connected) {
                 client.unsubscribe(currentTopic);
                 for(var id in otherPlayers) { map.removeLayer(otherPlayers[id].marker); if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); }
                 otherPlayers = {}; updatePlayerList();
                 if(currentFlag) { map.removeLayer(currentFlag); currentFlag = null; }
+                document.getElementById('chat-messages').innerHTML = '<div class="chat-msg-row" style="color:#999; font-style:italic;">已切换房间...</div>';
             }
             currentTopic = newTopic;
             if (client.connected) {
                 client.subscribe(currentTopic);
-                client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: 'SYS', senderName: '系统', text: `${myName} 加入房间` }));
+                client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: 'SYS', senderName: '系统', text: `${myName} 进房` }));
                 triggerManualLocate();
             }
-            showToast("✅ 进入房间: " + room);
+            alert("✅ 已进入: " + room);
             document.querySelector('.panel-title').innerText = "📡 房间: " + room;
         }
 
+        // ========================
+        // 📡 MQTT 消息处理
+        // ========================
         function handleMqttMessage(topic, message) {
             try {
                 var data = JSON.parse(message.toString());
@@ -510,110 +372,153 @@
                 }
                 if (data.id === myUniqueId) return;
                 
-                var now = Date.now(); 
-                var pAvatar = data.avatar || "📍"; 
-                var pRole = data.gameRole || "human"; 
-                
+                var now = Date.now(); var pAvatar = data.avatar || "📍"; var pStatus = data.status || ""; var pName = data.name || "未知";
                 if (!otherPlayers[data.id]) {
-                    var marker = L.marker([data.lat, data.lng]).addTo(map);
-                    var polyline = L.polyline([], { color: '#00ff00', weight: 3, opacity: 0.8 }).addTo(map);
-                    otherPlayers[data.id] = { marker: marker, polyline: polyline, lastSeen: now, lat: data.lat, lng: data.lng, avatar: pAvatar, name: data.name, gameRole: pRole };
-                    updateOtherMarkerStyle(data.id);
+                    var icon = L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
+                    var newMarker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
+                    if(pStatus) newMarker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' });
+                    newMarker.bindPopup("🚩 " + pName);
+                    var newPolyline = L.polyline([], { color: '#00ff00', weight: 3, opacity: 0.8, dashArray: '5, 10' }).addTo(map); newPolyline.addLatLng([data.lat, data.lng]);
+                    otherPlayers[data.id] = { marker: newMarker, polyline: newPolyline, lastSeen: now, lat: data.lat, lng: data.lng, avatar: pAvatar, status: pStatus, name: pName };
                 } else {
-                    var p = otherPlayers[data.id];
-                    p.marker.setLatLng([data.lat, data.lng]); 
-                    p.polyline.addLatLng([data.lat, data.lng]);
-                    p.lastSeen = now; p.lat = data.lat; p.lng = data.lng; p.avatar = pAvatar; p.name = data.name;
-                    if (p.gameRole !== pRole) {
-                        p.gameRole = pRole;
-                        updateOtherMarkerStyle(data.id);
-                    }
+                    var p = otherPlayers[data.id]; p.marker.setLatLng([data.lat, data.lng]); p.polyline.addLatLng([data.lat, data.lng]);
+                    p.lastSeen = now; p.lat = data.lat; p.lng = data.lng;
+                    if (p.name !== pName) { p.marker.bindPopup("🚩 " + pName); p.name = pName; }
+                    if (p.avatar !== pAvatar) { p.marker.setIcon(L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] })); p.avatar = pAvatar; }
+                    if (p.status !== pStatus) { p.status = pStatus; pStatus ? p.marker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }) : p.marker.unbindTooltip(); }
                 }
                 updatePlayerList();
             } catch (e) {}
         }
 
-        function updateOtherMarkerStyle(id) {
-            var p = otherPlayers[id];
-            var isZombie = (currentGameMode === 'biohazard' && p.gameRole === 'zombie');
-            var cssClass = isZombie ? 'emoji-marker-icon zombie-style' : 'emoji-marker-icon other-icon-style';
-            var displayAvatar = isZombie ? '🧟' : p.avatar;
-            var icon = L.divIcon({ className: cssClass, html: displayAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
-            p.marker.setIcon(icon);
-            p.marker.unbindPopup().bindPopup(isZombie ? "🧟 僵尸: " + p.name : "🚩 " + p.name);
-            p.polyline.setStyle({ color: isZombie ? '#ff0000' : '#00ff00' });
+        // ========================
+        // 🛠️ 辅助功能
+        // ========================
+        var currentViewMode = 'auto';
+        function setViewMode(mode, btnElement) {
+            currentViewMode = mode; var btns = document.querySelectorAll('.view-opt'); btns.forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); applyViewMode();
+        }
+        function applyViewMode() {
+            var body = document.body; var isMobile = false;
+            if (currentViewMode === 'mobile') isMobile = true; else if (currentViewMode === 'pc') isMobile = false; else isMobile = window.innerWidth <= 600;
+            if (isMobile) { body.classList.add('view-mobile'); if (!body.dataset.initMobile) { toggleChat(true); togglePlayerPanel(true); body.dataset.initMobile = "true"; } } else { body.classList.remove('view-mobile'); }
+        }
+        window.addEventListener('resize', function() { if (currentViewMode === 'auto') applyViewMode(); });
+
+        function togglePlayerPanel(forceCollapse) {
+            var content = document.getElementById('player-content'); var icon = document.getElementById('player-toggle-icon'); var isHidden = content.style.display === 'none';
+            if (forceCollapse === true || !isHidden) { content.style.display = 'none'; icon.innerText = "◀"; icon.style.transform = "rotate(90deg)"; } else { content.style.display = 'block'; icon.innerText = "▼"; icon.style.transform = "rotate(0deg)"; }
+        }
+        function toggleChat(forceCollapse) {
+            var panel = document.getElementById('chat-panel'); var icon = document.getElementById('chat-toggle-icon'); var badge = document.getElementById('chat-badge');
+            if (forceCollapse === true || !panel.classList.contains('collapsed')) { panel.classList.add('collapsed'); icon.innerText = "▲"; } else { panel.classList.remove('collapsed'); icon.innerText = "▼"; badge.style.display = 'none'; }
         }
 
-        // ========================
-        // 🛠️ 基础功能
-        // ========================
+        function toggleMeasure() {
+            isMeasuring = !isMeasuring; var btn = document.getElementById('measure-btn');
+            if(isMeasuring) { btn.classList.add('active'); btn.innerHTML = "❌"; document.getElementById('map').style.cursor = "crosshair"; alert("点击地图两点测量"); if(isFollowing) toggleFollow(); } 
+            else { btn.classList.remove('active'); btn.innerHTML = "📏"; document.getElementById('map').style.cursor = ""; clearMeasure(); }
+        }
+        function clearMeasure() { if(measureLine) map.removeLayer(measureLine); measureTips.forEach(t => map.removeLayer(t)); measurePoints = []; measureTips = []; }
+
+        function toggleFollow() {
+            isFollowing = !isFollowing; var btn = document.getElementById('follow-btn');
+            if(isFollowing) { btn.classList.add('active'); if(myLatLng) map.flyTo(myLatLng, 18); document.getElementById('toast').innerText = "视角跟随已开启"; document.getElementById('toast').style.opacity = 1; setTimeout(()=>document.getElementById('toast').style.opacity=0, 2000); } 
+            else { btn.classList.remove('active'); document.getElementById('toast').innerText = "视角跟随已关闭"; document.getElementById('toast').style.opacity = 1; setTimeout(()=>document.getElementById('toast').style.opacity=0, 2000); }
+        }
+
+        function onMapClick(e) {
+            if (isMeasuring) {
+                measurePoints.push(e.latlng);
+                var tip = L.circleMarker(e.latlng, { color: '#00f3ff', radius: 4 }).addTo(map); measureTips.push(tip);
+                if (measurePoints.length === 2) {
+                    var p1 = measurePoints[0]; var p2 = measurePoints[1];
+                    var dist = map.distance(p1, p2); var distStr = dist > 1000 ? (dist/1000).toFixed(2) + " km" : Math.round(dist) + " m";
+                    measureLine = L.polyline([p1, p2], { color: '#00f3ff', weight: 2, dashArray: '5, 5' }).addTo(map);
+                    measureLine.bindPopup(`<b>📏 ${distStr}</b>`).openPopup();
+                    measurePoints = []; setTimeout(() => { measureTips.forEach(t => map.removeLayer(t)); measureTips = []; }, 500);
+                } else if (measurePoints.length > 2) { clearMeasure(); }
+            }
+        }
+        function onMapContextMenu(e) {
+            if(isMeasuring) return;
+            if(confirm("🚩 插旗集合？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', senderName: myName, action: 'add', lat: e.latlng.lat, lng: e.latlng.lng }));
+        }
+        window.removeFlag = function() { if(confirm("取消集合点？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', action: 'remove' })); };
+
+        // 聊天
+        function handleChatKey(e) { if(e.key === 'Enter') sendChat(); }
+        function sendChat() {
+            var input = document.getElementById('chat-input'); var text = input.value; if(!text.trim()) return;
+            client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: myUniqueId, senderName: myName, text: text }));
+            appendChatMsg(myName, text, true); input.value = "";
+        }
+        function appendChatMsg(name, text, isMe) {
+            var box = document.getElementById('chat-messages'); var div = document.createElement('div'); div.className = 'chat-msg-row';
+            var senderHtml = isMe ? `<span class="chat-sender" style="color:#1890ff">我:</span>` : `<span class="chat-sender" style="color:#ff4d4f">${name}:</span>`;
+            div.innerHTML = `${senderHtml} <span class="chat-text">${text}</span>`;
+            box.appendChild(div); box.scrollTop = box.scrollHeight;
+            if (!isMe && document.getElementById('chat-panel').classList.contains('collapsed')) { showMsgBubble(name, text); document.getElementById('chat-badge').style.display = 'block'; }
+        }
+        function showMsgBubble(name, text) {
+            var container = document.getElementById('msg-bubble-container'); var bubble = document.createElement('div'); bubble.className = 'msg-bubble';
+            bubble.innerText = `${name}: ${text}`; container.appendChild(bubble); setTimeout(() => { bubble.style.opacity = '0'; setTimeout(() => bubble.remove(), 300); }, 3000);
+        }
+
+        // 定位与更新
         function triggerQuietUpdate() { clearTimeout(debounceTimer); debounceTimer = setTimeout(function() { locateAndShare(false); }, 800); }
         document.getElementById('my-name-input').addEventListener('input', function(e) { myName = e.target.value.trim(); localStorage.setItem('my_nickname', myName); triggerQuietUpdate(); });
         document.getElementById('my-avatar-input').addEventListener('input', function(e) { myCurrentAvatar = e.target.value; updateMyMarkerVisuals(); triggerQuietUpdate(); });
+        document.getElementById('my-status-input').addEventListener('input', function(e) { myCurrentStatus = e.target.value; updateMyMarkerVisuals(); triggerQuietUpdate(); });
 
         function updateMyMarkerVisuals() {
             if(!myMarker) return;
-            var isZombie = (currentGameMode === 'biohazard' && myGameRole === 'zombie');
-            var cssClass = isZombie ? 'emoji-marker-icon zombie-style' : 'emoji-marker-icon my-icon-style';
-            var displayAvatar = isZombie ? '🧟' : myCurrentAvatar;
-            var arrowHtml = `<div class="heading-arrow"></div>` + displayAvatar;
-            myMarker.setIcon(L.divIcon({ className: cssClass, html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }));
-            if (isZombie) { myPolyline.setStyle({ color: '#ff0000' }); } else { myPolyline.setStyle({ color: '#3388ff' }); }
+            var arrowHtml = `<div class="heading-arrow"></div>` + myCurrentAvatar;
+            myMarker.setIcon(L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }));
+            if (myCurrentStatus) myMarker.bindTooltip(myCurrentStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }); else myMarker.unbindTooltip();
             updateHeadingVisuals();
         }
-
-        function locateAndShare(showAlert = false) { map.locate({ setView: false, maxZoom: 17, timeout: 30000, enableHighAccuracy: true, maximumAge: 0 }); if(showAlert) alert("正在刷新位置..."); }
-        function triggerManualLocate() { locateAndShare(true); }
-        var isFirstLocate = true;
-        
-        function onLocationFound(e) {
-            myLatLng = e.latlng; 
-            if (isFollowing) map.panTo(myLatLng);
-            if (!myPolyline) myPolyline = L.polyline([], { color: '#3388ff', weight: 4, opacity: 0.8 }).addTo(map); myPolyline.addLatLng(e.latlng);
-            if (!myMarker) { 
-                var arrowHtml = `<div class="heading-arrow"></div>` + myCurrentAvatar;
-                myMarker = L.marker(e.latlng, { icon: L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }) }).addTo(map).bindPopup("<b>我</b>").openPopup(); 
-            } else myMarker.setLatLng(e.latlng);
-            updateMyMarkerVisuals();
-            if (isFirstLocate) { map.setView(e.latlng, 17); isFirstLocate = false; }
-            client.publish(currentTopic, JSON.stringify({ 
-                type: 'player_update', id: myUniqueId, name: myName, 
-                lat: e.latlng.lat, lng: e.latlng.lng, 
-                avatar: myCurrentAvatar, 
-                gameRole: myGameRole 
-            }));
-        }
-
         function updatePlayerList() {
             var container = document.getElementById('player-list-container'); container.innerHTML = ""; var hasPlayers = false;
             for (var id in otherPlayers) {
                 hasPlayers = true; var p = otherPlayers[id];
                 var distText = "--"; if (myLatLng) { var d = map.distance(myLatLng, [p.lat, p.lng]); d > 1000 ? distText = (d/1000).toFixed(1)+"km" : distText = Math.round(d)+"m"; }
-                var roleIcon = (p.gameRole === 'zombie') ? '🧟' : '😀';
+                var statusHtml = p.status ? `<div class="player-status-text">💬 ${p.status}</div>` : '';
                 var item = document.createElement('div'); item.className = 'player-item';
-                item.innerHTML = `<div class="player-info"><div class="player-head"><span>${roleIcon}</span><span>${p.name}</span></div></div><div class="player-dist">${distText}</div>`;
+                item.innerHTML = `<div class="player-info"><div class="player-head"><span>${p.avatar}</span><span>${p.name}</span></div>${statusHtml}</div><div class="player-dist">${distText}</div>`;
                 (function(targetLat, targetLng) { item.onclick = function() { map.flyTo([targetLat, targetLng], 18, { duration: 1.5 }); }; })(p.lat, p.lng);
                 container.appendChild(item);
             }
             if (!hasPlayers) container.innerHTML = '<div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">暂无其他人</div>';
         }
 
-        var currentViewMode = 'auto';
-        function setViewMode(mode, btnElement) { currentViewMode = mode; document.querySelectorAll('.view-opt').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); applyViewMode(); }
-        function applyViewMode() { var body = document.body; var isMobile = (currentViewMode === 'mobile') || (currentViewMode === 'auto' && window.innerWidth <= 600); if (isMobile) { body.classList.add('view-mobile'); if (!body.dataset.initMobile) { toggleChat(true); togglePlayerPanel(true); body.dataset.initMobile = "true"; } } else { body.classList.remove('view-mobile'); } }
-        window.addEventListener('resize', function() { if (currentViewMode === 'auto') applyViewMode(); });
-        function togglePlayerPanel() { var c = document.getElementById('player-content'); var i = document.getElementById('player-toggle-icon'); if (c.style.display === 'none') { c.style.display = 'block'; i.innerText = "▼"; i.style.transform = "rotate(0deg)"; } else { c.style.display = 'none'; i.innerText = "◀"; i.style.transform = "rotate(90deg)"; } }
-        function toggleChat() { var p = document.getElementById('chat-panel'); var i = document.getElementById('chat-toggle-icon'); if (p.classList.contains('collapsed')) { p.classList.remove('collapsed'); i.innerText = "▼"; document.getElementById('chat-badge').style.display = 'none'; } else { p.classList.add('collapsed'); i.innerText = "▲"; } }
-        function toggleMeasure() { isMeasuring = !isMeasuring; var btn = document.getElementById('measure-btn'); if(isMeasuring) { btn.classList.add('active'); btn.innerHTML = "❌"; document.getElementById('map').style.cursor = "crosshair"; alert("点击地图两点测量"); } else { btn.classList.remove('active'); btn.innerHTML = "📏"; document.getElementById('map').style.cursor = ""; clearMeasure(); } }
-        function clearMeasure() { if(measureLine) map.removeLayer(measureLine); measureTips.forEach(t => map.removeLayer(t)); measurePoints = []; measureTips = []; }
-        function toggleFollow() { isFollowing = !isFollowing; var btn = document.getElementById('follow-btn'); if(isFollowing) { btn.classList.add('active'); if(myLatLng) map.flyTo(myLatLng, 18); showToast("视角跟随已开启"); } else { btn.classList.remove('active'); showToast("视角跟随已关闭"); } }
-        function onMapClick(e) { if (isMeasuring) { measurePoints.push(e.latlng); var tip = L.circleMarker(e.latlng, { color: '#00f3ff', radius: 4 }).addTo(map); measureTips.push(tip); if (measurePoints.length === 2) { var d = map.distance(measurePoints[0], measurePoints[1]); var s = d > 1000 ? (d/1000).toFixed(2) + " km" : Math.round(d) + " m"; measureLine = L.polyline(measurePoints, { color: '#00f3ff', weight: 2, dashArray: '5, 5' }).addTo(map); measureLine.bindPopup(`<b>📏 ${s}</b>`).openPopup(); measurePoints = []; setTimeout(() => { measureTips.forEach(t => map.removeLayer(t)); measureTips = []; }, 500); } else if (measurePoints.length > 2) { clearMeasure(); } } }
-        function onMapContextMenu(e) { if(isMeasuring) return; if(confirm("🚩 插旗集合？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', senderName: myName, action: 'add', lat: e.latlng.lat, lng: e.latlng.lng })); }
-        window.removeFlag = function() { if(confirm("取消集合点？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', action: 'remove' })); };
-        function handleChatKey(e) { if(e.key === 'Enter') sendChat(); }
-        function sendChat() { var i = document.getElementById('chat-input'); var t = i.value; if(!t.trim()) return; client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: myUniqueId, senderName: myName, text: t })); appendChatMsg(myName, t, true); i.value = ""; }
-        function appendChatMsg(n, t, me) { var b = document.getElementById('chat-messages'); var d = document.createElement('div'); d.className = 'chat-msg-row'; var s = me ? `<span style="color:#1890ff;font-weight:bold">我:</span>` : `<span style="color:#ff4d4f;font-weight:bold">${n}:</span>`; d.innerHTML = `${s} ${t}`; b.appendChild(d); b.scrollTop = b.scrollHeight; if (!me && document.getElementById('chat-panel').classList.contains('collapsed')) document.getElementById('chat-badge').style.display = 'block'; }
-        if (window.DeviceOrientationEvent) { window.addEventListener('deviceorientation', function(e) { if (e.alpha !== null) { myHeading = e.webkitCompassHeading || (360 - e.alpha); var a = document.querySelector('.my-icon-style .heading-arrow'); if(a) { a.style.display = 'block'; a.style.transform = `translateX(-50%) rotate(${myHeading}deg)`; } } }, true); }
+        function locateAndShare(showAlert = false) { map.locate({ setView: false, maxZoom: 17, timeout: 30000, enableHighAccuracy: true, maximumAge: 0 }); if(showAlert) alert("正在刷新位置..."); }
+        function triggerManualLocate() { locateAndShare(true); }
+        var isFirstLocate = true;
+        function onLocationFound(e) {
+            myLatLng = e.latlng; 
+            if (isFollowing) map.panTo(myLatLng);
+            if (!myPolyline) myPolyline = L.polyline([], { color: '#00f3ff', weight: 4, opacity: 0.8 }).addTo(map); myPolyline.addLatLng(e.latlng);
+            if (!myMarker) { 
+                var arrowHtml = `<div class="heading-arrow"></div>` + myCurrentAvatar;
+                myMarker = L.marker(e.latlng, { icon: L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }) }).addTo(map).bindPopup("<b>我</b>").openPopup(); if(myCurrentStatus) updateMyMarkerVisuals(); 
+            } else myMarker.setLatLng(e.latlng);
+            if (isFirstLocate) { map.setView(e.latlng, 17); isFirstLocate = false; }
+            client.publish(currentTopic, JSON.stringify({ type: 'player_update', id: myUniqueId, name: myName, lat: e.latlng.lat, lng: e.latlng.lng, avatar: myCurrentAvatar, status: myCurrentStatus }));
+        }
+
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', function(event) {
+                if (event.alpha !== null) {
+                    var heading = event.webkitCompassHeading || (360 - event.alpha);
+                    myHeading = heading; updateHeadingVisuals();
+                }
+            }, true);
+        }
+        function updateHeadingVisuals() {
+            var arrow = document.querySelector('.my-icon-style .heading-arrow');
+            if(arrow) { arrow.style.display = 'block'; arrow.style.transform = `translateX(-50%) rotate(${myHeading}deg)`; }
+        }
     </script>
 </body>
 </html>
