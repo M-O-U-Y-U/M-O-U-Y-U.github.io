@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU 共享地图 (V5.1 修正版)</title>
+    <title>MOUYU 共享地图 (V6.0 电子围栏版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -171,6 +171,12 @@
             z-index: 8000; pointer-events: none; display: none;
             animation: pulse-red 1s infinite;
         }
+        .out-of-bounds-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            box-shadow: inset 0 0 100px 50px rgba(255, 0, 0, 0.8);
+            z-index: 8000; pointer-events: none; display: none;
+            animation: pulse-red 0.5s infinite;
+        }
         @keyframes pulse-red { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
         
         .countdown-overlay {
@@ -248,7 +254,7 @@
             <ul class="rules-list">
                 <li>🎯 <b>目标：</b>幸存者存活至时间结束 或 僵尸感染所有人。</li>
                 <li>🧟 <b>感染：</b>距离 < 10米 自动感染。</li>
-                <li>⏱️ <b>流程：</b>全员投票 -> 倒计时 -> 随机变异。</li>
+                <li>⚠️ <b>规则：</b>必须在电子围栏内活动，出界10秒将被通报。</li>
             </ul>
 
             <div style="margin-bottom: 15px; font-size: 14px; font-weight: bold; color: #1890ff;">
@@ -273,6 +279,11 @@
                     <span>人</span>
                 </div>
                 
+                <div style="margin-bottom:10px;">
+                    <button id="draw-fence-btn" class="action-btn btn-orange" onclick="toggleDrawFence()">✏️ 划定游戏范围</button>
+                    <div id="fence-status" style="font-size:11px; color:#666; margin-top:2px;">未设置范围</div>
+                </div>
+                
                 <button id="admin-start-btn" class="action-btn btn-red" disabled onclick="finalStartGame()">等待全员投票...</button>
             </div>
         </div>
@@ -286,12 +297,13 @@
     <div id="win-overlay" class="win-modal">
         <div class="win-title" id="win-title">僵尸获胜</div>
         <div id="win-desc" style="font-size: 18px; margin-bottom: 30px;">全员感染</div>
-        <button class="action-btn btn-gray" style="width: 200px;" onclick="closeWinOverlay()">关闭</button>
+        <button class="action-btn btn-gray" style="width: 200px;" onclick="closeWinOverlayAndReset()">关闭并重置</button>
     </div>
     
     <div id="infection-effect" class="infection-overlay"></div>
+    <div id="out-bounds-effect" class="out-of-bounds-overlay"></div>
 
-    <div id="bio-status-bar" class="bio-status-panel">
+    <div id="bio-status-bar" class="bio-status-panel" style="display: none;">
         <div class="bio-timer" id="game-timer">00:00</div>
         <div>🛡️ <span id="survivor-count" class="bio-count-val">0</span></div>
         <div>🧟‍♂️ <span id="zombie-count" class="bio-zombie-val">0</span></div>
@@ -519,6 +531,14 @@
         var voteSet = new Set(); 
         var gameDurationSeconds = 300; 
         var localTimerInterval = null;
+        
+        // 🧱 电子围栏变量
+        var fencePoints = [];
+        var fencePolygonLayer = null;
+        var isDrawingFence = false;
+        var drawTempPoints = [];
+        var drawTempLayer = null;
+        var outOfBoundsTimer = null;
 
         function startApp() {
             darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
@@ -557,6 +577,7 @@
             client.on('message', handleMqttMessage);
             
             map.on('click', onMapClick);
+            map.on('dblclick', finishDrawing); // 双击结束绘制
             map.on('dragstart', function() { if(isFollowing) toggleFollow(); });
             map.on('contextmenu', onMapContextMenu);
             map.on('locationfound', onLocationFound);
@@ -679,12 +700,25 @@
             zombieList.clear();
             voteSet.clear();
             
+            // 清除围栏
+            fencePoints = [];
+            if(fencePolygonLayer) { map.removeLayer(fencePolygonLayer); fencePolygonLayer = null; }
+            document.getElementById('fence-status').innerText = "未设置范围";
+            
+            // 清除绘制临时状态
+            isDrawingFence = false;
+            drawTempPoints = [];
+            if(drawTempLayer) { map.removeLayer(drawTempLayer); drawTempLayer = null; }
+            document.getElementById('draw-fence-btn').innerText = "✏️ 划定游戏范围";
+            
             if(localTimerInterval) clearInterval(localTimerInterval);
+            if(outOfBoundsTimer) clearTimeout(outOfBoundsTimer);
             
             document.getElementById('init-vote-btn').style.display = 'none';
             document.getElementById('bio-status-bar').style.display = 'none';
             document.getElementById('force-stop-btn').style.display = 'none';
             document.getElementById('infection-effect').style.display = 'none';
+            document.getElementById('out-bounds-effect').style.display = 'none';
             document.getElementById('countdown-overlay').style.display = 'none';
             document.getElementById('bio-vote-overlay').style.display = 'none';
             document.getElementById('win-overlay').style.display = 'none';
@@ -698,6 +732,67 @@
             confirmBox("确定强制结束本轮游戏吗？\n所有人的状态将重置。", function() {
                 publishData({ type: 'sys_game_stop' });
             });
+        }
+
+        // ==========================
+        // 🧱 电子围栏逻辑
+        // ==========================
+        function toggleDrawFence() {
+            if(isDrawingFence) {
+                // 取消绘制
+                isDrawingFence = false;
+                drawTempPoints = [];
+                if(drawTempLayer) { map.removeLayer(drawTempLayer); drawTempLayer = null; }
+                document.getElementById('draw-fence-btn').innerText = "✏️ 划定游戏范围";
+                showToast("已取消绘制");
+            } else {
+                // 开始绘制
+                isDrawingFence = true;
+                drawTempPoints = [];
+                document.getElementById('draw-fence-btn').innerText = "❌ 取消绘制 (双击地图完成)";
+                showToast("请在地图上点击点，双击结束");
+            }
+        }
+        
+        function finishDrawing() {
+            if(!isDrawingFence) return;
+            if(drawTempPoints.length < 3) { alertBox("至少需要3个点才能构成区域！"); return; }
+            
+            isDrawingFence = false;
+            document.getElementById('draw-fence-btn').innerText = "✏️ 重画范围";
+            
+            // 广播围栏数据
+            var flatPoints = drawTempPoints.map(p => [p.lat, p.lng]);
+            publishData({ type: 'sys_update_fence', points: flatPoints });
+            
+            // 本地显示
+            updateFenceVisuals(flatPoints);
+            if(drawTempLayer) { map.removeLayer(drawTempLayer); drawTempLayer = null; }
+        }
+        
+        function updateFenceVisuals(points) {
+            fencePoints = points;
+            if(fencePolygonLayer) map.removeLayer(fencePolygonLayer);
+            
+            if(points && points.length > 0) {
+                fencePolygonLayer = L.polygon(points, { color: 'red', fillOpacity: 0.1, dashArray: '5, 5' }).addTo(map);
+                document.getElementById('fence-status').innerText = "✅ 已设置范围";
+            } else {
+                document.getElementById('fence-status').innerText = "未设置范围";
+            }
+        }
+        
+        // 射线法判断点是否在多边形内
+        function isPointInPolygon(lat, lng, polyPoints) {
+            var x = lat, y = lng;
+            var inside = false;
+            for (var i = 0, j = polyPoints.length - 1; i < polyPoints.length; j = i++) {
+                var xi = polyPoints[i][0], yi = polyPoints[i][1];
+                var xj = polyPoints[j][0], yj = polyPoints[j][1];
+                var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
         }
 
         // ==========================
@@ -740,12 +835,11 @@
                 var candidates = Object.keys(otherPlayers);
                 candidates.push(myUniqueId);
                 
-                // 随机抽取 zCount 个母体
                 var targetIds = [];
                 for(var i=0; i<zCount && candidates.length > 0; i++) {
                     var idx = Math.floor(Math.random() * candidates.length);
                     targetIds.push(candidates[idx]);
-                    candidates.splice(idx, 1); // 避免重复
+                    candidates.splice(idx, 1); 
                 }
                 
                 publishData({ type: 'game_infect_batch', targets: targetIds });
@@ -782,23 +876,24 @@
             var survivors = total - zombies;
             
             if (survivors === 0 && zombies > 0) {
-                // 主动清理定时器，停止倒计时逻辑
                 if(localTimerInterval) clearInterval(localTimerInterval);
-                isGameRunning = false; // 标记游戏结束
-                
+                isGameRunning = false; 
                 showWinModal("🧟‍♂️ 僵尸获胜", "全员感染，无人生还", "red");
             }
         }
         
         function showWinModal(title, desc, color) {
             document.getElementById('infection-effect').style.display = 'none';
+            document.getElementById('out-bounds-effect').style.display = 'none';
             document.getElementById('win-title').innerText = title;
             document.getElementById('win-title').style.color = color;
             document.getElementById('win-desc').innerText = desc;
             document.getElementById('win-overlay').style.display = 'flex';
         }
-        function closeWinOverlay() {
+        function closeWinOverlayAndReset() {
             document.getElementById('win-overlay').style.display = 'none';
+            // 延迟一点自动重置，避免立即开始困扰
+            publishData({ type: 'sys_game_stop' });
         }
 
         function handleMqttMessage(topic, message) {
@@ -810,13 +905,14 @@
                 // --- 📡 系统同步 ---
                 if (data.type === 'sys_hello') {
                     if (isBioMode) {
-                        publishData({ type: 'sys_sync_state', mode: 'bio', running: isGameRunning });
+                        publishData({ type: 'sys_sync_state', mode: 'bio', running: isGameRunning, fence: fencePoints });
                     }
                     return;
                 }
                 if (data.type === 'sys_sync_state') {
                     if (data.mode === 'bio' && !isBioMode) {
                         activateBioModeUI();
+                        if (data.fence) updateFenceVisuals(data.fence);
                         if (data.running) {
                              document.getElementById('force-stop-btn').style.display = 'block';
                              isGameRunning = true;
@@ -831,7 +927,16 @@
                 if (data.type === 'sys_game_stop') {
                     resetGameLocalState();
                     activateBioModeUI(); 
-                    showToast("⛔ 游戏已被强制重置");
+                    showToast("⛔ 游戏已重置，准备下一局");
+                    return;
+                }
+                if (data.type === 'sys_update_fence') {
+                    updateFenceVisuals(data.points);
+                    return;
+                }
+                if (data.type === 'sys_announce') {
+                    showToast("📢 " + data.msg);
+                    appendChatMsg("系统", data.msg, false);
                     return;
                 }
                 
@@ -914,7 +1019,6 @@
                         }, 1000);
                     }
 
-                    // 批量感染逻辑
                     if (data.type === 'game_infect_batch') {
                         var targets = data.targets || [];
                         targets.forEach(function(tid) {
@@ -945,6 +1049,7 @@
                         return;
                     }
                 }
+                
                 // -----------------------
 
                 if (data.type === 'sos') {
@@ -1090,6 +1195,14 @@
         }
 
         function onMapClick(e) {
+            if(isDrawingFence) {
+                drawTempPoints.push(e.latlng);
+                if(drawTempLayer) map.removeLayer(drawTempLayer);
+                // 绘制当前的多边形预览
+                drawTempLayer = L.polygon(drawTempPoints, { color: 'orange', dashArray: '5, 5' }).addTo(map);
+                return;
+            }
+
             if (isMeasuring) {
                 measurePoints.push(e.latlng);
                 var tip = L.circleMarker(e.latlng, { color: '#00f3ff', radius: 4 }).addTo(map); measureTips.push(tip);
@@ -1194,13 +1307,34 @@
             
             if (isFirstLocate) { map.setView(e.latlng, 17); isFirstLocate = false; }
             
-            // 🧟‍♂️ 生化模式距离判定逻辑
-            if (isBioMode && isGameRunning && !isZombie) {
-                for (var id in otherPlayers) {
-                    if (zombieList.has(id)) {
-                        var dist = map.distance(myLatLng, [otherPlayers[id].lat, otherPlayers[id].lng]);
-                        if (dist < 10) {
-                            becomeZombie();
+            // 🧟‍♂️ 生化模式逻辑
+            if (isBioMode && isGameRunning) {
+                
+                // 1. 电子围栏检测
+                if(fencePoints.length > 0) {
+                    var isInside = isPointInPolygon(e.latlng.lat, e.latlng.lng, fencePoints);
+                    if(!isInside) {
+                        document.getElementById('out-bounds-effect').style.display = 'block';
+                        showToast("⚠️ 警告：你已离开战区！请立即返回！");
+                        if(!outOfBoundsTimer) {
+                            outOfBoundsTimer = setTimeout(function() {
+                                publishData({ type: 'sys_announce', msg: myName + " 畏罪潜逃，判定出局/违规！" });
+                            }, 10000);
+                        }
+                    } else {
+                        document.getElementById('out-bounds-effect').style.display = 'none';
+                        if(outOfBoundsTimer) { clearTimeout(outOfBoundsTimer); outOfBoundsTimer = null; }
+                    }
+                }
+
+                // 2. 感染检测
+                if (!isZombie) {
+                    for (var id in otherPlayers) {
+                        if (zombieList.has(id)) {
+                            var dist = map.distance(myLatLng, [otherPlayers[id].lat, otherPlayers[id].lng]);
+                            if (dist < 10) {
+                                becomeZombie();
+                            }
                         }
                     }
                 }
