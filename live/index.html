@@ -271,10 +271,12 @@
             ]);
             streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB', maxZoom: 20 });
 
-            // 2. 创建地图
-            map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [darkMap], zoomControl: false });
+            // 2. 创建地图 - ✅ 默认使用卫星图 (satellite)，并加入图层控制器
+            map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [satellite], zoomControl: false });
             L.control.zoom({position: 'topleft'}).addTo(map);
-            L.control.layers({ "🌑 夜间模式": darkMap, "🛰️ 卫星图": satellite, "☀️ 街道图": streetMap }).addTo(map);
+            
+            // ✅ 改名："🌑 夜间模式" 和 "🛰️ 卫星图"
+            L.control.layers({ "🛰️ 卫星图": satellite, "🌑 夜间模式": darkMap, "☀️ 街道图": streetMap }).addTo(map);
             L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
             
             // 3. 用户信息
