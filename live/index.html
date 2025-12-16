@@ -274,7 +274,7 @@
             // 2. 创建地图
             map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [darkMap], zoomControl: false });
             L.control.zoom({position: 'topleft'}).addTo(map);
-            L.control.layers({ "🌑 赛博模式": darkMap, "🛰️ 卫星图": satellite, "☀️ 街道图": streetMap }).addTo(map);
+            L.control.layers({ "🌑 夜间模式": darkMap, "🛰️ 卫星图": satellite, "☀️ 街道图": streetMap }).addTo(map);
             L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
             
             // 3. 用户信息
