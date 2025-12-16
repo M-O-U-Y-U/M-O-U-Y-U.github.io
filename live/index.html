@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU Game Map</title>
+    <title>MOUYU的共享地图</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -43,15 +43,21 @@
            ======================== */
         .game-btn { position: absolute; bottom: 200px; right: 20px; z-index: 999; width: 50px; height: 50px; border-radius: 50%; font-size: 24px; background: #722ed1; color: white; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
         .game-btn:active { transform: scale(0.9); }
+        
+        /* 帮助按钮 */
+        .help-btn { position: absolute; bottom: 260px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; background: white; color: #333; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer; font-weight: bold; }
 
-        /* 游戏选择面板 */
-        .game-panel {
+        /* 游戏选择面板 & 帮助面板 (通用样式) */
+        .modal-panel {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 300px; background: white; border-radius: 16px; padding: 20px;
+            width: 320px; background: white; border-radius: 16px; padding: 20px;
             z-index: 2000; box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: none;
-            animation: fadeIn 0.3s;
+            animation: fadeIn 0.3s; max-height: 80vh; overflow-y: auto;
         }
-        .game-panel h3 { margin: 0 0 15px 0; text-align: center; color: #333; }
+        .modal-panel h3 { margin: 0 0 15px 0; text-align: center; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .close-panel-btn { margin-top: 15px; width: 100%; padding: 10px; background: #eee; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        
+        /* 游戏选项 */
         .game-option {
             padding: 12px; border: 2px solid #eee; border-radius: 10px; margin-bottom: 10px;
             cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s;
@@ -59,15 +65,20 @@
         .game-option:hover { background: #f9f9f9; }
         .game-option.active { border-color: #722ed1; background: #f9f0ff; color: #722ed1; font-weight: bold; }
         .game-icon { font-size: 20px; }
-        .close-game-panel { margin-top: 10px; width: 100%; padding: 10px; background: #eee; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
-        /* 生化危机状态栏 */
+        /* 帮助内容 */
+        .help-content p { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 8px; }
+        .help-tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; margin-right: 5px; }
+        .tag-default { background: #1890ff; }
+        .tag-zombie { background: #ff4d4f; }
+
+        /* 生化危机 HUD */
         #biohazard-hud {
             position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 30px;
+            background: rgba(0,0,0,0.8); color: white; padding: 8px 15px; border-radius: 30px;
             z-index: 1000; display: none; font-size: 14px; font-weight: bold;
             box-shadow: 0 4px 15px rgba(255, 0, 0, 0.4); border: 2px solid #ff4d4f;
-            display: flex; gap: 15px; align-items: center;
+            display: flex; gap: 15px; align-items: center; white-space: nowrap;
         }
         .hud-item { display: flex; align-items: center; gap: 5px; }
         .be-zombie-btn {
@@ -75,7 +86,6 @@
             font-size: 12px; font-weight: bold; cursor: pointer; animation: pulse 2s infinite;
         }
         
-        /* 感染特效 */
         @keyframes infected-screen { 
             0% { box-shadow: inset 0 0 0 0 rgba(255,0,0,0); }
             50% { box-shadow: inset 0 0 50px 20px rgba(255,0,0,0.8); }
@@ -103,7 +113,9 @@
         }
         @media (max-width: 600px) {
             .player-list-panel { width: 200px; top: 10px; right: 10px; padding: 10px; }
-            .locate-btn { bottom: 30px; right: 10px; } .follow-btn { bottom: 90px; right: 10px; } .measure-btn { bottom: 135px; right: 10px; } .game-btn { bottom: 185px; right: 10px; width: 40px; height: 40px; font-size: 20px; }
+            .locate-btn { bottom: 30px; right: 10px; } .follow-btn { bottom: 90px; right: 10px; } .measure-btn { bottom: 135px; right: 10px; } 
+            .game-btn { bottom: 185px; right: 10px; width: 40px; height: 40px; font-size: 20px; }
+            .help-btn { bottom: 235px; right: 10px; width: 36px; height: 36px; font-size: 16px; }
             .room-setting-box { padding: 6px !important; }
             .room-input-row { flex-direction: column; align-items: flex-start !important; gap: 4px !important; }
             .room-input-row .setting-label { width: 100% !important; margin-bottom: 2px; }
@@ -176,28 +188,30 @@
 
     <div id="toast" class="toast-tip"></div>
 
-    <button class="game-btn" onclick="toggleGamePanel()" title="游戏菜单">🎮</button>
+    <button class="game-btn" onclick="toggleModal('game-menu')" title="游戏菜单">🎮</button>
+    <button class="help-btn" onclick="toggleModal('help-menu')" title="游戏说明">❓</button>
     
-    <div class="game-panel" id="game-menu">
+    <div class="modal-panel" id="game-menu">
         <h3>🎮 选择游戏模式</h3>
         <div class="game-option active" id="mode-none" onclick="switchGameMode('none')">
             <span class="game-icon">🏳️</span> 
-            <div>和平模式<div style="font-size:10px; color:#999;">仅共享位置，无规则</div></div>
+            <div>默认模式<div style="font-size:10px; color:#999;">仅共享位置，无规则</div></div>
         </div>
         <div class="game-option" id="mode-biohazard" onclick="switchGameMode('biohazard')">
             <span class="game-icon">🧟</span>
             <div>生化危机<div style="font-size:10px; color:#999;">僵尸抓人，靠近感染</div></div>
         </div>
-        <div class="game-option" style="opacity:0.5; cursor:not-allowed;">
-            <span class="game-icon">🏴</span> 涂鸦战争 (开发中)
+        <button class="close-panel-btn" onclick="toggleModal('game-menu')">关闭</button>
+    </div>
+
+    <div class="modal-panel" id="help-menu">
+        <h3>📖 游戏操作指南</h3>
+        <div class="help-content">
+            <p><span class="help-tag tag-default">默认模式</span><br>最基础的位置共享。适合朋友聚会、位置查看。没有游戏规则。</p>
+            <p><span class="help-tag tag-zombie">生化危机</span><br><b>玩法：</b>一人变身母体，追逐其他人。<br><b>感染规则：</b>当僵尸靠近人类 <b>15米</b> 内时，人类手机会震动并自动变成僵尸。</p>
+            <p><b>🚪 房间系统：</b><br>在右侧面板输入相同的【房间名+密码】即可私密联机。不同房间的人互不可见。</p>
         </div>
-        <div class="game-option" style="opacity:0.5; cursor:not-allowed;">
-            <span class="game-icon">📦</span> 寻宝猎人 (开发中)
-        </div>
-        <div class="game-option" style="opacity:0.5; cursor:not-allowed;">
-            <span class="game-icon">🕵️</span> 谁是卧底 (开发中)
-        </div>
-        <button class="close-game-panel" onclick="toggleGamePanel()">关闭</button>
+        <button class="close-panel-btn" onclick="toggleModal('help-menu')">我知道了</button>
     </div>
 
     <div id="biohazard-hud" style="display:none;">
@@ -313,23 +327,30 @@
         var debounceTimer = null;
         
         // 🕹️ 游戏变量
-        var currentGameMode = "none"; // none, biohazard, turf, treasure, amongus
-        var myGameRole = "human"; // human, zombie
+        var currentGameMode = "none"; 
+        var myGameRole = "human"; 
         var gameLoopInterval = null;
 
         function startApp() {
-            // 初始化地图图层
-            darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
+            // 1. 初始化地图图层 - 完美还原
+            
+            // 卫星图 (底图 + 边界 + 街道线条)
             satellite = L.layerGroup([
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }) // <--- 街道线条回来了
             ]);
+            
+            // 街道图 (备用)
             streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB', maxZoom: 20 });
+            
+            // 夜间模式 (备用)
+            darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
 
-            // 默认卫星图
+            // 2. 创建地图 - 默认使用卫星图 (satellite)，缩放4
             map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [satellite], zoomControl: false });
             L.control.zoom({position: 'topleft'}).addTo(map);
-            L.control.layers({ "🛰️ 卫星图": satellite, "🌑 夜间模式": darkMap, "☀️ 街道图": streetMap }).addTo(map);
+            L.control.layers({ "🛰️ 卫星图": satellite, "☀️ 街道图": streetMap, "🌑 夜间模式": darkMap }).addTo(map);
             L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
             
             // 用户信息
@@ -355,9 +376,9 @@
             
             // 启动定位
             locateAndShare(false); 
-            setInterval(() => locateAndShare(false), 2000); // 游戏模式需要更快的刷新频率(2s)
+            setInterval(() => locateAndShare(false), 2000); 
             
-            // 启动清理 & 游戏循环
+            // 启动游戏循环
             gameLoopInterval = setInterval(gameLoop, 1000); 
 
             applyViewMode();
@@ -366,8 +387,10 @@
         // ========================
         // 🎮 游戏逻辑引擎
         // ========================
-        function toggleGamePanel() {
-            var p = document.getElementById('game-menu');
+        function toggleModal(id) {
+            var p = document.getElementById(id);
+            var others = document.querySelectorAll('.modal-panel');
+            others.forEach(o => { if(o.id !== id) o.style.display = 'none'; }); // 互斥关闭
             p.style.display = (p.style.display === 'block') ? 'none' : 'block';
         }
 
@@ -376,14 +399,14 @@
             // UI 更新
             document.querySelectorAll('.game-option').forEach(el => el.classList.remove('active'));
             document.getElementById('mode-' + mode).classList.add('active');
-            toggleGamePanel(); // 关闭面板
+            toggleModal('game-menu'); // 关闭面板
 
             // 状态重置
             myGameRole = "human";
             updateMyMarkerVisuals();
             
             if (mode === 'none') {
-                showToast("已切换至：和平模式");
+                showToast("已切换至：默认模式");
                 document.getElementById('biohazard-hud').style.display = 'none';
             } else if (mode === 'biohazard') {
                 showToast("⚠️ 生化危机模式已启动！");
@@ -394,14 +417,12 @@
         }
 
         function gameLoop() {
-            // 清理离线玩家
             var now = Date.now();
             var listChanged = false;
             var zombieCount = 0;
             var humanCount = 0;
 
             for (var id in otherPlayers) {
-                // 超时清理
                 if (now - otherPlayers[id].lastSeen > 10000) { 
                     map.removeLayer(otherPlayers[id].marker); 
                     if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); 
@@ -410,14 +431,13 @@
                     continue;
                 }
                 
-                // 统计人数
                 if (otherPlayers[id].gameRole === 'zombie') zombieCount++; else humanCount++;
 
-                // --- 🧟 生化危机判定逻辑 ---
+                // --- 🧟 感染判定 ---
                 if (currentGameMode === 'biohazard' && myGameRole === 'human') {
                     if (otherPlayers[id].gameRole === 'zombie' && myLatLng) {
                         var dist = map.distance(myLatLng, [otherPlayers[id].lat, otherPlayers[id].lng]);
-                        if (dist < 15) { // 15米内被感染
+                        if (dist < 15) { 
                             becomeZombie("😭 被 " + otherPlayers[id].name + " 感染了！");
                         }
                     }
@@ -426,7 +446,6 @@
 
             if(listChanged) updatePlayerList();
             
-            // 更新 HUD
             if (myGameRole === 'zombie') zombieCount++; else humanCount++;
             document.getElementById('zombie-count').innerText = zombieCount;
             document.getElementById('human-count').innerText = humanCount;
@@ -436,14 +455,11 @@
             if (myGameRole === 'zombie') return;
             myGameRole = 'zombie';
             
-            // 视觉特效
             document.body.classList.add('infected-fx');
             setTimeout(() => document.body.classList.remove('infected-fx'), 1000);
             
-            // 提示
             if (reason) alert(reason); else showToast("🧟 你变成了母体僵尸！去感染别人！");
             
-            // 广播状态
             updateMyMarkerVisuals();
             triggerManualLocate();
         }
@@ -461,7 +477,7 @@
             if (!room) room = "大厅";
             var safeRoom = encodeURIComponent(room);
             var safePass = pass ? "_" + encodeURIComponent(pass) : "";
-            return 'mouyu/game/' + safeRoom + safePass; // Topic改名为 mouyu/game
+            return 'mouyu/game/' + safeRoom + safePass; 
         }
 
         function joinRoom() {
@@ -502,24 +518,18 @@
                 
                 var now = Date.now(); 
                 var pAvatar = data.avatar || "📍"; 
-                var pRole = data.gameRole || "human"; // 获取对方游戏角色
+                var pRole = data.gameRole || "human"; 
                 
-                // 更新对方数据
                 if (!otherPlayers[data.id]) {
-                    // 新玩家
                     var marker = L.marker([data.lat, data.lng]).addTo(map);
                     var polyline = L.polyline([], { color: '#00ff00', weight: 3, opacity: 0.8 }).addTo(map);
-                    
                     otherPlayers[data.id] = { marker: marker, polyline: polyline, lastSeen: now, lat: data.lat, lng: data.lng, avatar: pAvatar, name: data.name, gameRole: pRole };
-                    updateOtherMarkerStyle(data.id); // 设置初始样式
+                    updateOtherMarkerStyle(data.id);
                 } else {
-                    // 已有玩家更新
                     var p = otherPlayers[data.id];
                     p.marker.setLatLng([data.lat, data.lng]); 
                     p.polyline.addLatLng([data.lat, data.lng]);
                     p.lastSeen = now; p.lat = data.lat; p.lng = data.lng; p.avatar = pAvatar; p.name = data.name;
-                    
-                    // 如果对方角色变了（比如变僵尸了），更新样式
                     if (p.gameRole !== pRole) {
                         p.gameRole = pRole;
                         updateOtherMarkerStyle(data.id);
@@ -529,19 +539,14 @@
             } catch (e) {}
         }
 
-        // 更新他人样式（区分人类/僵尸）
         function updateOtherMarkerStyle(id) {
             var p = otherPlayers[id];
             var isZombie = (currentGameMode === 'biohazard' && p.gameRole === 'zombie');
-            
             var cssClass = isZombie ? 'emoji-marker-icon zombie-style' : 'emoji-marker-icon other-icon-style';
             var displayAvatar = isZombie ? '🧟' : p.avatar;
-            
             var icon = L.divIcon({ className: cssClass, html: displayAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
             p.marker.setIcon(icon);
             p.marker.unbindPopup().bindPopup(isZombie ? "🧟 僵尸: " + p.name : "🚩 " + p.name);
-            
-            // 轨迹线颜色
             p.polyline.setStyle({ color: isZombie ? '#ff0000' : '#00ff00' });
         }
 
@@ -555,18 +560,11 @@
         function updateMyMarkerVisuals() {
             if(!myMarker) return;
             var isZombie = (currentGameMode === 'biohazard' && myGameRole === 'zombie');
-            
             var cssClass = isZombie ? 'emoji-marker-icon zombie-style' : 'emoji-marker-icon my-icon-style';
             var displayAvatar = isZombie ? '🧟' : myCurrentAvatar;
             var arrowHtml = `<div class="heading-arrow"></div>` + displayAvatar;
-
             myMarker.setIcon(L.divIcon({ className: cssClass, html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }));
-            
-            if (isZombie) {
-                myPolyline.setStyle({ color: '#ff0000' }); 
-            } else {
-                myPolyline.setStyle({ color: '#3388ff' });
-            }
+            if (isZombie) { myPolyline.setStyle({ color: '#ff0000' }); } else { myPolyline.setStyle({ color: '#3388ff' }); }
             updateHeadingVisuals();
         }
 
@@ -582,18 +580,13 @@
                 var arrowHtml = `<div class="heading-arrow"></div>` + myCurrentAvatar;
                 myMarker = L.marker(e.latlng, { icon: L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }) }).addTo(map).bindPopup("<b>我</b>").openPopup(); 
             } else myMarker.setLatLng(e.latlng);
-            
-            // 每次位置更新都检查样式（防止切模式后样式没变）
             updateMyMarkerVisuals();
-
             if (isFirstLocate) { map.setView(e.latlng, 17); isFirstLocate = false; }
-            
-            // 发送数据包 (包含 gameRole)
             client.publish(currentTopic, JSON.stringify({ 
                 type: 'player_update', id: myUniqueId, name: myName, 
                 lat: e.latlng.lat, lng: e.latlng.lng, 
                 avatar: myCurrentAvatar, 
-                gameRole: myGameRole // 关键：同步我的身份
+                gameRole: myGameRole 
             }));
         }
 
@@ -602,9 +595,7 @@
             for (var id in otherPlayers) {
                 hasPlayers = true; var p = otherPlayers[id];
                 var distText = "--"; if (myLatLng) { var d = map.distance(myLatLng, [p.lat, p.lng]); d > 1000 ? distText = (d/1000).toFixed(1)+"km" : distText = Math.round(d)+"m"; }
-                
                 var roleIcon = (p.gameRole === 'zombie') ? '🧟' : '😀';
-                
                 var item = document.createElement('div'); item.className = 'player-item';
                 item.innerHTML = `<div class="player-info"><div class="player-head"><span>${roleIcon}</span><span>${p.name}</span></div></div><div class="player-dist">${distText}</div>`;
                 (function(targetLat, targetLng) { item.onclick = function() { map.flyTo([targetLat, targetLng], 18, { duration: 1.5 }); }; })(p.lat, p.lng);
@@ -613,7 +604,6 @@
             if (!hasPlayers) container.innerHTML = '<div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">暂无其他人</div>';
         }
 
-        // View Mode & Chat (保持原样)
         var currentViewMode = 'auto';
         function setViewMode(mode, btnElement) { currentViewMode = mode; document.querySelectorAll('.view-opt').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); applyViewMode(); }
         function applyViewMode() { var body = document.body; var isMobile = (currentViewMode === 'mobile') || (currentViewMode === 'auto' && window.innerWidth <= 600); if (isMobile) { body.classList.add('view-mobile'); if (!body.dataset.initMobile) { toggleChat(true); togglePlayerPanel(true); body.dataset.initMobile = "true"; } } else { body.classList.remove('view-mobile'); } }
