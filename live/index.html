@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU 共享地图 (V5.0 去弹窗版)</title>
+    <title>MOUYU 共享地图 (V5.1 修正版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -291,7 +291,7 @@
     
     <div id="infection-effect" class="infection-overlay"></div>
 
-    <div id="bio-status-bar" class="bio-status-panel" style="display: flex;">
+    <div id="bio-status-bar" class="bio-status-panel">
         <div class="bio-timer" id="game-timer">00:00</div>
         <div>🛡️ <span id="survivor-count" class="bio-count-val">0</span></div>
         <div>🧟‍♂️ <span id="zombie-count" class="bio-zombie-val">0</span></div>
@@ -549,6 +549,8 @@
             client.on('connect', function () { 
                 console.log('✅ MQTT Connected'); 
                 updateNetStatus(true);
+                // 默认加入大厅
+                joinRoom(false, 'normal', true);
             });
             client.on('offline', function() { updateNetStatus(false); });
             client.on('reconnect', function() { updateNetStatus(true); });
@@ -609,8 +611,17 @@
             joinRoom(true, mode);
         }
 
-        function joinRoom(isCreator = false, initialMode = 'normal') {
-            var room = document.getElementById('room-input').value.trim();
+        function joinRoom(isCreator = false, initialMode = 'normal', isAutoLobby = false) {
+            var room;
+            if(isAutoLobby) {
+                room = "大厅";
+                // 重置UI
+                document.getElementById('room-input').value = "大厅";
+                document.getElementById('pass-input').value = "";
+            } else {
+                room = document.getElementById('room-input').value.trim();
+            }
+            
             var newTopic = getTopic(room);
             
             resetGameLocalState();
@@ -639,7 +650,9 @@
                 triggerManualLocate();
             }
             
-            alertBox("✅ 已进入: " + room + "\n🔐 加密: " + (getRoomPassword() ? "开启" : "关闭"));
+            if(!isAutoLobby) {
+                alertBox("✅ 已进入: " + room + "\n🔐 加密: " + (getRoomPassword() ? "开启" : "关闭"));
+            }
             document.querySelector('.panel-title').innerText = "📡 " + room;
         }
 
@@ -769,9 +782,11 @@
             var survivors = total - zombies;
             
             if (survivors === 0 && zombies > 0) {
-                showWinModal("🧟‍♂️ 僵尸获胜", "全员感染，无人生还", "red");
-                isGameRunning = false;
+                // 主动清理定时器，停止倒计时逻辑
                 if(localTimerInterval) clearInterval(localTimerInterval);
+                isGameRunning = false; // 标记游戏结束
+                
+                showWinModal("🧟‍♂️ 僵尸获胜", "全员感染，无人生还", "red");
             }
         }
         
