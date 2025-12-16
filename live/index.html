@@ -3,53 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU的共享地图</title>
+    <title>MOUYU 游戏地图</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
-        #map { height: 100vh; width: 100%; }
+        #map { height: 100vh; width: 100%; background: #000; }
         
         /* ========================
-           🔐 1. 全站门禁样式
+           🔐 门禁系统
            ======================== */
         #login-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px);
+            background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(10px);
             z-index: 9999; display: flex; justify-content: center; align-items: center;
             flex-direction: column; color: white;
         }
         .login-box {
-            background: white; padding: 30px; border-radius: 16px; width: 90%; max-width: 320px;
-            text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            animation: popUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background: #1f1f1f; padding: 30px; border-radius: 16px; width: 85%; max-width: 320px;
+            text-align: center; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2); border: 1px solid #333;
         }
-        @keyframes popUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .login-title { color: #333; font-size: 20px; font-weight: bold; margin-bottom: 20px; }
         .login-input {
-            width: 100%; padding: 12px; font-size: 16px; border: 2px solid #eee; border-radius: 8px;
-            margin-bottom: 15px; text-align: center; outline: none; transition: 0.3s;
+            width: 100%; padding: 12px; font-size: 16px; border: 1px solid #444; border-radius: 8px;
+            margin-bottom: 15px; text-align: center; outline: none; background: #2a2a2a; color: white;
         }
-        .login-input:focus { border-color: #1890ff; }
         .login-btn {
-            width: 100%; padding: 12px; background: #1890ff; color: white; border: none;
+            width: 100%; padding: 12px; background: #00f3ff; color: #000; border: none;
             border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;
         }
-        .login-btn:active { background: #096dd9; transform: scale(0.98); }
 
         /* ========================
-           📱 2. 移动端 UI 优化
+           🎮 游戏控制器 UI
            ======================== */
+        .game-control-panel {
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; display: none; /* 默认隐藏 */
+            background: rgba(0, 0, 0, 0.8); border: 1px solid #00f3ff;
+            padding: 10px 20px; border-radius: 30px; color: #00f3ff; font-weight: bold;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3); pointer-events: auto;
+            text-align: center; font-size: 14px;
+        }
+        .radar-scan-effect {
+            position: absolute; top: 50%; left: 50%; width: 100vh; height: 100vh;
+            transform: translate(-50%, -50%); border-radius: 50%;
+            border: 2px solid rgba(0, 243, 255, 0.5); background: rgba(0, 243, 255, 0.1);
+            opacity: 0; pointer-events: none; z-index: 900;
+        }
+        @keyframes radarPing { 0% { width: 0; height: 0; opacity: 1; } 100% { width: 100vmax; height: 100vmax; opacity: 0; } }
+
+        /* 通用按钮 */
         .map-btn {
             background: white; border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            padding: 8px 12px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; transition: all 0.2s;
+            padding: 8px 12px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; 
             display: flex; align-items: center; justify-content: center; gap: 5px;
         }
-        .map-btn:active { background: #f0f0f0; transform: scale(0.95); }
-        .map-btn.active { background: #e6f7ff; color: #1890ff; border: 1px solid #1890ff; }
-
         .locate-btn { position: absolute; bottom: 40px; right: 20px; z-index: 999; padding: 12px 20px; border-radius: 50px; }
         .follow-btn { position: absolute; bottom: 100px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
         .measure-btn { position: absolute; bottom: 150px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
@@ -59,31 +68,16 @@
             position: absolute; top: 20px; right: 20px; z-index: 1000;
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
             padding: 15px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            width: 260px; /* 稍微加宽一点适配房间输入 */
-            max-height: 70vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.5);
+            width: 260px; max-height: 70vh; overflow-y: auto; 
             transition: all 0.3s ease;
         }
-        /* 手机端面板适配 */
         @media (max-width: 600px) {
-            .player-list-panel {
-                width: 200px; /* 手机上窄一点 */
-                top: 10px; right: 10px;
-                padding: 10px;
-            }
-            .locate-btn { bottom: 30px; right: 10px; padding: 10px 15px; font-size: 12px; }
-            .follow-btn { bottom: 90px; right: 10px; width: 36px; height: 36px; }
-            .measure-btn { bottom: 135px; right: 10px; width: 36px; height: 36px; }
-            
-            /* 房间设置区域在手机上的优化 */
-            .room-setting-box { padding: 6px !important; }
-            .room-input-row { flex-direction: column; align-items: flex-start !important; gap: 4px !important; }
-            .room-input-row .setting-label { width: 100% !important; margin-bottom: 2px; }
-            .room-input-row input { width: 100% !important; }
+            .player-list-panel { width: 220px; top: 10px; right: 10px; padding: 10px; }
+            .locate-btn { bottom: 30px; } .follow-btn { bottom: 90px; } .measure-btn { bottom: 135px; }
         }
 
         .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px; cursor: pointer; }
         .panel-title { font-size: 14px; font-weight: 700; color: #1a1a1a; margin: 0; }
-        .toggle-icon { font-size: 12px; color: #999; transition: transform 0.3s; }
         
         .chat-panel {
             position: absolute; bottom: 30px; left: 20px; z-index: 1000;
@@ -91,131 +85,116 @@
             border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             display: flex; flex-direction: column; transition: width 0.3s, transform 0.3s;
         }
-        @media (max-width: 600px) {
-            .chat-panel { width: 70%; left: 10px; bottom: 80px; }
-        }
+        @media (max-width: 600px) { .chat-panel { width: 65%; left: 10px; bottom: 80px; } }
         
         .chat-header { background: #f0f2f5; padding: 10px 12px; font-size: 12px; font-weight: bold; color: #666; display: flex; justify-content: space-between; cursor: pointer; border-radius: 12px 12px 0 0; }
-        .chat-panel.collapsed .chat-header { border-radius: 12px; }
-        .chat-content-wrapper { display: block; }
         .chat-panel.collapsed .chat-content-wrapper { display: none; }
-        .chat-messages { height: 150px; overflow-y: auto; padding: 10px; font-size: 12px; background: white; }
-        .chat-msg-row { margin-bottom: 6px; line-height: 1.4; word-wrap: break-word; }
-        .chat-sender { font-weight: bold; color: #1890ff; margin-right: 4px; }
-        .chat-input-area { display: flex; padding: 8px; border-top: 1px solid #eee; background: #fff; border-radius: 0 0 12px 12px; align-items: center; }
-        .chat-input { flex: 1; border: 1px solid #ddd; border-radius: 4px; padding: 6px 8px; font-size: 12px; outline: none; min-width: 0; }
-        .chat-send-btn { margin-left: 6px; background: #1890ff; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+        .chat-messages { height: 120px; overflow-y: auto; padding: 10px; font-size: 12px; background: white; }
+        .chat-msg-row { margin-bottom: 4px; line-height: 1.4; word-wrap: break-word; }
+        .chat-input-area { display: flex; padding: 8px; border-top: 1px solid #eee; background: #fff; border-radius: 0 0 12px 12px; }
+        .chat-input { flex: 1; border: 1px solid #ddd; border-radius: 4px; padding: 6px; font-size: 12px; }
+        .chat-send-btn { margin-left: 6px; background: #1890ff; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
 
         .user-setting-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-        .setting-label { font-size: 12px; color: #666; width: 30px; flex-shrink: 0; }
-        .avatar-input { width: 40px; text-align: center; border: 1px solid #ddd; border-radius: 8px; padding: 5px; font-size: 16px; background: #f9f9f9; }
-        .status-input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 6px; font-size: 12px; background: #f9f9f9; }
-        .id-input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 6px; font-size: 12px; background: #f9f9f9; font-weight: bold; color: #333; }
-        .gpx-btn { width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 8px; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px; }
-
-        .view-switch { display: flex; gap: 5px; background: #eee; padding: 2px; border-radius: 6px; flex: 1; }
-        .view-opt { flex: 1; text-align: center; font-size: 11px; padding: 4px 0; cursor: pointer; border-radius: 4px; color: #666; }
-        .view-opt.active { background: white; color: #3388ff; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-
-        .player-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; margin-bottom: 6px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-        .player-head { display: flex; align-items: center; gap: 5px; font-weight: 600; font-size: 13px; color: #333; }
-        .player-status-text { font-size: 11px; color: #666; margin-top: 2px; }
-        .player-dist { font-size: 11px; color: #888; }
+        .setting-label { font-size: 12px; color: #666; width: 40px; flex-shrink: 0; font-weight: bold; }
+        .avatar-input { width: 40px; text-align: center; border: 1px solid #ddd; border-radius: 6px; padding: 4px; background: #f9f9f9; }
+        .id-input, .status-input, .game-select { flex: 1; border: 1px solid #ddd; border-radius: 6px; padding: 4px 6px; font-size: 12px; background: #f9f9f9; }
         
-        .emoji-marker-icon { position: relative; display: flex; justify-content: center; align-items: center; background: white; border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.3); border: 2px solid white; font-size: 24px; transition: all 0.3s ease; }
+        .player-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; margin-bottom: 4px; background: #f8f9fa; border-radius: 6px; cursor: pointer; }
+        .emoji-marker-icon { position: relative; display: flex; justify-content: center; align-items: center; background: white; border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.3); border: 2px solid white; font-size: 24px; transition: opacity 0.3s; }
         .my-icon-style { border-color: #3388ff; z-index: 1000 !important; }
-        .other-icon-style { border-color: #ff4d4f; }
-        .heading-arrow { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #3388ff; z-index: -1; display: none; }
-        .flag-icon { font-size: 30px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); animation: bounce 1s infinite; }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        .status-bubble { background: white; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border-radius: 4px; padding: 2px 6px; font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; }
-        .leaflet-tooltip-bottom:before { display: none; }
+        .heading-arrow { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #3388ff; z-index: -1; }
         
-        .msg-bubble-container { position: absolute; bottom: 45px; left: 0; width: 100%; pointer-events: none; display: flex; flex-direction: column-reverse; align-items: flex-start; }
-        .msg-bubble { background: rgba(0, 0, 0, 0.75); color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; margin-bottom: 5px; max-width: 80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: fadeUp 0.3s ease-out; margin-left: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .chat-badge { display: none; width: 8px; height: 8px; background: #ff4d4f; border-radius: 50%; margin-right: 5px; }
         .toast-tip { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity 0.5s; z-index: 2000; }
-        .leaflet-control-scale { margin-bottom: 5px !important; margin-left: 10px !important; }
+        
+        /* 游戏模式特定样式 */
+        .game-btn { background: #ff4d4f; color: white; border: none; border-radius: 20px; padding: 5px 15px; cursor: pointer; margin-top: 5px; font-size: 12px; }
+        .game-btn.blue { background: #1890ff; }
+        .radar-hidden { opacity: 0 !important; pointer-events: none; } /* 雷达模式隐身 */
     </style>
 </head>
 <body>
 
     <div id="login-overlay">
         <div class="login-box">
-            <div style="font-size: 40px; margin-bottom: 10px;">🔒</div>
-            <div class="login-title">MOUYU 内部系统</div>
-            <input type="password" id="site-password" class="login-input" placeholder="请输入访问密码..." onkeypress="if(event.key==='Enter') checkSitePassword()">
-            <button class="login-btn" onclick="checkSitePassword()">解锁系统</button>
-            <div id="login-error" style="color:red; font-size:12px; margin-top:10px; opacity:0; transition:opacity 0.3s;">密码错误</div>
+            <div style="font-size: 40px; margin-bottom: 10px;">🎮</div>
+            <div class="login-title">MOUYU 游戏系统</div>
+            <input type="password" id="site-password" class="login-input" placeholder="输入密码..." onkeypress="if(event.key==='Enter') checkSitePassword()">
+            <button class="login-btn" onclick="checkSitePassword()">START</button>
+            <div id="login-error" style="color:red; font-size:12px; margin-top:10px; opacity:0;">密码错误</div>
         </div>
     </div>
 
-    <div id="toast" class="toast-tip">长按地图插旗 | 点击直尺测量</div>
+    <div id="game-hud" class="game-control-panel">
+        <span id="game-status-text">等待指令...</span>
+        <div id="game-actions" style="margin-top:5px;"></div>
+    </div>
+    
+    <div id="radar-ping" class="radar-scan-effect"></div>
+
+    <div id="toast" class="toast-tip">提示信息</div>
 
     <div class="player-list-panel" id="player-panel">
         <div class="panel-header" onclick="togglePlayerPanel()">
-            <div class="panel-title">📡 MOUYU地图</div>
-            <div class="toggle-icon" id="player-toggle-icon">▼</div>
+            <div class="panel-title">📡 设置与列表</div>
+            <div style="font-size:12px;">▼</div>
         </div>
         <div class="panel-content" id="player-content">
             
-            <div class="room-setting-box" style="background: #e6f7ff; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #91d5ff;">
-                <div class="user-setting-row room-input-row">
-                    <span class="setting-label" style="font-weight:bold; color:#0050b3;">房间</span>
-                    <input type="text" id="room-input" class="id-input" value="大厅" placeholder="房间名" style="background:white;">
+            <div style="background: #e6f7ff; padding: 8px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #91d5ff;">
+                <div class="user-setting-row">
+                    <span class="setting-label">房间</span>
+                    <input type="text" id="room-input" class="id-input" value="大厅" placeholder="房间名">
                 </div>
-                <div class="user-setting-row room-input-row">
-                    <span class="setting-label" style="font-weight:bold; color:#0050b3;">密码</span>
-                    <input type="text" id="pass-input" class="status-input" placeholder="加密(可选)" style="background:white;">
+                <div class="user-setting-row">
+                    <span class="setting-label">密码</span>
+                    <input type="text" id="pass-input" class="status-input" placeholder="加密(可选)">
                 </div>
-                <button class="gpx-btn" onclick="joinRoom()" style="background:#1890ff; margin-top:5px; height: 32px; line-height: 1;">🚪 进入房间</button>
+                <button class="map-btn" onclick="joinRoom()" style="width:100%; background:#1890ff; color:white; justify-content:center;">🚪 进入/切换</button>
+            </div>
+
+            <div style="background: #333; color: #fff; padding: 8px; border-radius: 8px; margin-bottom: 10px;">
+                <div class="user-setting-row">
+                    <span class="setting-label" style="color:#00f3ff;">模式</span>
+                    <select id="game-mode-select" class="game-select" onchange="switchGameMode(this.value)" style="background:#555; color:white; border:none;">
+                        <option value="none">📍 默认 (无)</option>
+                        <option value="zombie">🧟 生化危机</option>
+                        <option value="turf">🎨 涂鸦占领</option>
+                        <option value="treasure">📦 寻宝猎人</option>
+                        <option value="radar">🕵️ 幽灵雷达</option>
+                    </select>
+                </div>
+                <div id="game-desc" style="font-size:10px; color:#aaa; margin-top:4px;">纯净位置共享模式</div>
             </div>
             
-            <div style="padding-bottom: 10px; border-bottom: 1px dashed #eee; margin-bottom: 10px;">
-                <div class="user-setting-row">
-                    <span class="setting-label">视图</span>
-                    <div class="view-switch">
-                        <div class="view-opt active" onclick="setViewMode('auto', this)">自动</div>
-                        <div class="view-opt" onclick="setViewMode('mobile', this)">手机</div>
-                        <div class="view-opt" onclick="setViewMode('pc', this)">电脑</div>
-                    </div>
-                </div>
+            <div style="border-top:1px dashed #eee; padding-top:10px;">
                 <div class="user-setting-row">
                     <span class="setting-label">昵称</span>
-                    <input type="text" id="my-name-input" class="id-input" value="" placeholder="输入名字" maxlength="10">
+                    <input type="text" id="my-name-input" class="id-input" placeholder="名字">
                 </div>
                 <div class="user-setting-row">
                     <span class="setting-label">形象</span>
-                    <input type="text" id="my-avatar-input" class="avatar-input" value="😼" maxlength="2">
-                </div>
-                <div class="user-setting-row">
-                    <span class="setting-label">状态</span>
-                    <input type="text" id="my-status-input" class="status-input" placeholder="状态..." maxlength="10">
+                    <input type="text" id="my-avatar-input" class="avatar-input" value="😼">
                 </div>
             </div>
-            <div id="player-list-container">
-                <div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">扫描中...</div>
+
+            <div id="player-list-container" style="margin-top:10px;">
+                <div style="font-size:12px; color:#ccc; text-align:center;">扫描中...</div>
             </div>
-            <div class="my-status" id="my-status-text">连接中...</div>
         </div>
     </div>
 
     <div class="chat-panel" id="chat-panel">
-        <div class="msg-bubble-container" id="msg-bubble-container"></div>
         <div class="chat-header" onclick="toggleChat()">
-            <div style="display:flex; align-items:center;">
-                <div class="chat-badge" id="chat-badge"></div>
-                <span>💬 频道</span>
-            </div>
-            <span id="chat-toggle-icon">▼</span>
+            <div>💬 频道 <span id="chat-badge" style="display:none; color:red;">●</span></div>
+            <span>▲</span>
         </div>
-        <div class="chat-content-wrapper" id="chat-content-wrapper">
+        <div class="chat-content-wrapper">
             <div class="chat-messages" id="chat-messages">
-                <div class="chat-msg-row" style="color:#999; font-style:italic;">欢迎来到聊天室...</div>
+                <div class="chat-msg-row" style="color:#999;">欢迎...</div>
             </div>
             <div class="chat-input-area">
-                <input type="text" id="chat-input" class="chat-input" placeholder="说点什么..." onkeypress="handleChatKey(event)">
+                <input type="text" id="chat-input" class="chat-input" placeholder="发送消息..." onkeypress="if(event.key==='Enter') sendChat()">
                 <button class="chat-send-btn" onclick="sendChat()">发送</button>
             </div>
         </div>
@@ -223,302 +202,367 @@
 
     <div id="map"></div>
     
-    <button class="map-btn measure-btn" id="measure-btn" onclick="toggleMeasure()" title="测量距离">📏</button>
-    <button class="map-btn follow-btn" id="follow-btn" onclick="toggleFollow()" title="视角跟随">🔄</button>
-    <button class="map-btn locate-btn" onclick="triggerManualLocate()">📍 定位我</button>
+    <button class="map-btn measure-btn" id="measure-btn" onclick="toggleMeasure()">📏</button>
+    <button class="map-btn follow-btn" id="follow-btn" onclick="toggleFollow()">🔄</button>
+    <button class="map-btn locate-btn" onclick="triggerManualLocate()">📍</button>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
         // ============================================
-        // 🔐 网站门禁逻辑 (在这里修改密码！)
+        // 🔐 1. 密码配置 (请修改这里!)
         // ============================================
-        var SITE_PASSWORD = "MOUYU"; // <--- 请在这里修改你的网站访问密码！
-        var isSystemUnlocked = false;
+        var SITE_PASSWORD = "MOUYU"; 
 
         function checkSitePassword() {
             var input = document.getElementById('site-password').value;
             if (input === SITE_PASSWORD) {
                 document.getElementById('login-overlay').style.display = 'none';
-                isSystemUnlocked = true;
-                startApp(); // 密码正确才启动地图和MQTT
+                startApp();
             } else {
                 var err = document.getElementById('login-error');
-                err.style.opacity = 1;
-                setTimeout(function() { err.style.opacity = 0; }, 2000);
+                err.style.opacity = 1; setTimeout(()=>err.style.opacity=0, 2000);
             }
         }
-        
+
         // ============================================
-        // 🗺️ 地图与系统核心 (被包裹在 startApp 中)
+        // 🏗️ 核心变量
         // ============================================
-        var map, client, satellite, streetMap, darkMap;
+        var map, client;
         var myUniqueId, myName;
         var otherPlayers = {}; var myLatLng = null; var myMarker = null; var myPolyline = null;
         var myCurrentAvatar = "😼"; var myCurrentStatus = ""; var currentFlag = null; 
-        var isMeasuring = false; var measurePoints = []; var measureLine = null; var measureTips = [];
-        var isFollowing = false; var myHeading = 0; 
-        var currentTopic = ""; 
-        var debounceTimer = null;
+        var isFollowing = false; var myHeading = 0; var currentTopic = ""; 
+        var isMeasuring = false; var measurePoints = []; var measureLine = null;
+        
+        // 🎮 游戏状态变量
+        var currentGameMode = "none";
+        var myTeamColor = "#3388ff"; // 默认蓝色
+        var amIZombie = false;
+        var treasures = []; // 存储宝藏标记
 
         function startApp() {
-            // 1. 初始化地图图层
-            darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
-            satellite = L.layerGroup([
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
-            ]);
-            streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB', maxZoom: 20 });
-
-            // 2. 创建地图 - ✅ 默认使用卫星图 (satellite)，并加入图层控制器
+            // 初始化地图 (默认卫星图)
+            var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+            var streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 20 });
+            var darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 });
+            
             map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [satellite], zoomControl: false });
             L.control.zoom({position: 'topleft'}).addTo(map);
-            
-            // ✅ 改名："🌑 夜间模式" 和 "🛰️ 卫星图"
             L.control.layers({ "🛰️ 卫星图": satellite, "🌑 夜间模式": darkMap, "☀️ 街道图": streetMap }).addTo(map);
-            L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
-            
-            // 3. 用户信息
-            myUniqueId = localStorage.getItem('my_unique_id');
-            if (!myUniqueId) {
-                myUniqueId = "uid_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-                localStorage.setItem('my_unique_id', myUniqueId);
-            }
-            myName = localStorage.getItem('my_nickname');
-            if (!myName) { myName = "神秘人" + Math.floor(Math.random() * 100); }
+
+            // 用户ID初始化
+            myUniqueId = localStorage.getItem('uid') || "uid_" + Math.floor(Math.random()*100000);
+            localStorage.setItem('uid', myUniqueId);
+            myName = localStorage.getItem('name') || "玩家" + Math.floor(Math.random()*100);
             document.getElementById('my-name-input').value = myName;
-            document.getElementById('my-status-text').innerText = "系统ID: " + myUniqueId.substring(0,8)+"...";
-            
-            // 4. 连接 MQTT (只有密码正确才会执行这里)
+
+            // MQTT 连接
             client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-            client.on('connect', function () { 
-                console.log('✅ MQTT Connected'); 
-                joinRoom(); 
-            });
+            client.on('connect', () => { console.log('MQTT Connected'); joinRoom(); });
             client.on('message', handleMqttMessage);
-            
-            // 5. 绑定地图事件
+
+            // 事件监听
             map.on('click', onMapClick);
-            map.on('dragstart', function() { if(isFollowing) toggleFollow(); });
-            map.on('contextmenu', onMapContextMenu);
+            map.on('contextmenu', onMapContext);
             map.on('locationfound', onLocationFound);
-            map.on('locationerror', function(e) { console.log("定位中..."); });
-
-            // 6. 启动定位
-            locateAndShare(false); 
-            setInterval(() => locateAndShare(false), 3000);
+            locateAndShare();
+            setInterval(locateAndShare, 3000); // 3秒刷新一次位置
             
-            // 7. 启动清理定时器
-            setInterval(function() {
-                var now = Date.now(); var listChanged = false;
-                for (var id in otherPlayers) { if (now - otherPlayers[id].lastSeen > 10000) { map.removeLayer(otherPlayers[id].marker); if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); delete otherPlayers[id]; listChanged = true; } }
-                if(listChanged) updatePlayerList();
-            }, 2000);
-
-            // 8. 提示Toast
-            setTimeout(function(){ var t = document.getElementById('toast'); t.style.opacity = 1; setTimeout(function(){ t.style.opacity = 0; }, 3000); }, 1000);
-            
-            applyViewMode();
+            // 监听昵称头像变化
+            document.getElementById('my-name-input').addEventListener('input', (e)=>{ myName=e.target.value; localStorage.setItem('name', myName); });
+            document.getElementById('my-avatar-input').addEventListener('input', (e)=>{ myCurrentAvatar=e.target.value; updateMyMarker(); });
         }
 
-        // ========================
-        // 🏠 房间逻辑
-        // ========================
-        function getTopic(room, pass) {
-            if (!room) room = "大厅";
-            var safeRoom = encodeURIComponent(room);
-            var safePass = pass ? "_" + encodeURIComponent(pass) : "";
-            return 'mouyu/live/' + safeRoom + safePass;
+        // ============================================
+        // 🎮 游戏模式切换逻辑
+        // ============================================
+        function switchGameMode(mode) {
+            currentGameMode = mode;
+            var desc = document.getElementById('game-desc');
+            var hud = document.getElementById('game-hud');
+            var actions = document.getElementById('game-actions');
+            
+            // 重置状态
+            hud.style.display = 'none';
+            amIZombie = false;
+            myCurrentAvatar = document.getElementById('my-avatar-input').value; // 恢复默认头像
+            myTeamColor = "#3388ff"; // 恢复默认颜色
+            document.querySelectorAll('.leaflet-marker-icon').forEach(el => el.classList.remove('radar-hidden')); // 清除雷达隐身
+            
+            // 清除宝藏
+            treasures.forEach(t => map.removeLayer(t)); treasures = [];
+
+            if (mode === 'none') {
+                desc.innerText = "纯净位置共享模式";
+            } 
+            else if (mode === 'zombie') {
+                desc.innerText = "靠近感染者会被感染！";
+                hud.style.display = 'block';
+                document.getElementById('game-status-text').innerText = "我是: 🏃 幸存者";
+                actions.innerHTML = `<button class="game-btn" onclick="becomeZombie()">变身母体(感染源)</button>`;
+            }
+            else if (mode === 'turf') {
+                desc.innerText = "移动轨迹将涂抹地图颜色";
+                hud.style.display = 'block';
+                document.getElementById('game-status-text').innerText = "当前阵营";
+                actions.innerHTML = `
+                    <button class="game-btn" onclick="setTeam('red')">加入红队</button>
+                    <button class="game-btn blue" onclick="setTeam('blue')">加入蓝队</button>`;
+            }
+            else if (mode === 'treasure') {
+                desc.innerText = "长按地图埋藏宝藏，靠近20米开启";
+                showToast("提示：长按地图任意位置埋宝藏");
+            }
+            else if (mode === 'radar') {
+                desc.innerText = "所有人隐身，点击雷达扫描";
+                hud.style.display = 'block';
+                document.getElementById('game-status-text').innerText = "幽灵模式";
+                actions.innerHTML = `<button class="game-btn blue" onclick="scanRadar()">📡 启动雷达 (3s)</button>`;
+                // 立即让自己隐身 (透明度降低)
+                if(myMarker) myMarker.setOpacity(0.3);
+            }
+            updateMyMarker();
         }
 
+        // --- 🧟 生化模式逻辑 ---
+        function becomeZombie() {
+            amIZombie = true;
+            myCurrentAvatar = "🧟";
+            document.getElementById('game-status-text').innerText = "我是: 🧟 感染者";
+            updateMyMarker();
+            showToast("你已变成僵尸！去抓人！");
+        }
+        function checkInfection(otherLat, otherLng, otherAvatar) {
+            if (currentGameMode === 'zombie' && !amIZombie && otherAvatar === '🧟') {
+                var dist = map.distance(myLatLng, [otherLat, otherLng]);
+                if (dist < 15) { // 15米内被感染
+                    becomeZombie();
+                    client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: 'SYS', senderName: '系统', text: `${myName} 被感染了！` }));
+                }
+            }
+        }
+
+        // --- 🎨 涂鸦模式逻辑 ---
+        function setTeam(color) {
+            if(color === 'red') { myTeamColor = '#ff4d4f'; showToast("已加入红队"); }
+            else { myTeamColor = '#1890ff'; showToast("已加入蓝队"); }
+            // 立即开始一段新轨迹
+            myPolyline = null; 
+            if(myLatLng) {
+                myPolyline = L.polyline([], { color: myTeamColor, weight: 8, opacity: 0.6 }).addTo(map);
+                myPolyline.addLatLng(myLatLng);
+            }
+        }
+
+        // --- 📡 雷达模式逻辑 ---
+        function scanRadar() {
+            var wave = document.getElementById('radar-ping');
+            wave.style.animation = 'none';
+            wave.offsetHeight; /* trigger reflow */
+            wave.style.animation = 'radarPing 2s linear';
+            
+            // 显示所有人 3秒
+            document.querySelectorAll('.other-icon-style').forEach(el => el.classList.remove('radar-hidden'));
+            setTimeout(() => {
+                // 3秒后再次隐藏
+                document.querySelectorAll('.other-icon-style').forEach(el => el.classList.add('radar-hidden'));
+            }, 3000);
+        }
+
+        // --- 📦 寻宝模式逻辑 ---
+        function onMapContext(e) {
+            if (currentGameMode === 'treasure') {
+                if(confirm("🏴‍☠️ 要在这里埋下宝藏吗？")) {
+                    var note = prompt("输入宝藏里的留言/口令:");
+                    if(note) {
+                        client.publish(currentTopic, JSON.stringify({
+                            type: 'treasure_add', lat: e.latlng.lat, lng: e.latlng.lng, note: note
+                        }));
+                    }
+                }
+            } else if (!isMeasuring) {
+                // 默认的长按插旗功能
+                if(confirm("🚩 插旗集合？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', action: 'add', lat: e.latlng.lat, lng: e.latlng.lng, senderName: myName }));
+            }
+        }
+
+        // ============================================
+        // 📡 MQTT & 地图核心
+        // ============================================
         function joinRoom() {
-            var room = document.getElementById('room-input').value.trim();
-            var pass = document.getElementById('pass-input').value.trim();
-            var newTopic = getTopic(room, pass);
-
-            if (currentTopic === newTopic) { alert("你已经在房间 [" + room + "] 里了"); return; }
-            if (currentTopic && client.connected) {
-                client.unsubscribe(currentTopic);
-                for(var id in otherPlayers) { map.removeLayer(otherPlayers[id].marker); if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); }
-                otherPlayers = {}; updatePlayerList();
-                if(currentFlag) { map.removeLayer(currentFlag); currentFlag = null; }
-                document.getElementById('chat-messages').innerHTML = '<div class="chat-msg-row" style="color:#999; font-style:italic;">已切换房间...</div>';
-            }
+            var room = document.getElementById('room-input').value || "大厅";
+            var pass = document.getElementById('pass-input').value;
+            var newTopic = 'mouyu/game/' + encodeURIComponent(room) + (pass ? "_" + encodeURIComponent(pass) : "");
+            
+            if(currentTopic) { client.unsubscribe(currentTopic); clearMap(); }
             currentTopic = newTopic;
-            if (client.connected) {
-                client.subscribe(currentTopic);
-                client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: 'SYS', senderName: '系统', text: `${myName} 进房` }));
-                triggerManualLocate();
-            }
-            alert("✅ 已进入: " + room);
-            document.querySelector('.panel-title').innerText = "📡 房间: " + room;
+            client.subscribe(currentTopic);
+            client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: 'SYS', senderName: '系统', text: `${myName} 进房` }));
+            showToast("已进入: " + room);
         }
 
-        // ========================
-        // 📡 MQTT 消息处理
-        // ========================
-        function handleMqttMessage(topic, message) {
-            try {
-                var data = JSON.parse(message.toString());
-                if (data.type === 'chat') { if (data.senderId !== myUniqueId) appendChatMsg(data.senderName, data.text, false); return; }
-                if (data.type === 'flag_update') {
-                    if (data.action === 'add') {
-                        if (currentFlag) map.removeLayer(currentFlag);
-                        var flagIcon = L.divIcon({ className: 'flag-icon', html: '🏁', iconSize: [30, 40], iconAnchor: [15, 40] });
-                        currentFlag = L.marker([data.lat, data.lng], { icon: flagIcon }).addTo(map).bindPopup(`<b>🏁 集合</b><br>发起: ${data.senderName}<br><button onclick="removeFlag()">拔掉</button>`).openPopup();
-                    } else if (data.action === 'remove') { if (currentFlag) { map.removeLayer(currentFlag); currentFlag = null; } }
-                    return;
-                }
-                if (data.id === myUniqueId) return;
+        function handleMqttMessage(topic, msg) {
+            var data = JSON.parse(msg.toString());
+            if (data.type === 'chat') { appendChat(data); return; }
+            if (data.type === 'flag_update') { updateFlag(data); return; }
+            if (data.type === 'treasure_add') { addTreasure(data); return; }
+            if (data.id === myUniqueId) return; // 忽略自己
+
+            updateOtherPlayer(data);
+        }
+
+        function updateOtherPlayer(data) {
+            var id = data.id;
+            var now = Date.now();
+            
+            // 游戏模式特殊处理
+            if (currentGameMode === 'zombie') checkInfection(data.lat, data.lng, data.avatar);
+            
+            if (!otherPlayers[id]) {
+                var icon = L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: data.avatar, iconSize: [30, 30] });
+                var marker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
+                marker.bindPopup(data.name);
+                // 涂鸦模式用粗线，普通模式用细线
+                var weight = (currentGameMode === 'turf') ? 8 : 3;
+                var color = (currentGameMode === 'turf') ? (data.teamColor || '#ff4d4f') : '#ff4d4f';
+                var poly = L.polyline([], { color: color, weight: weight, opacity: 0.6 }).addTo(map);
                 
-                var now = Date.now(); var pAvatar = data.avatar || "📍"; var pStatus = data.status || ""; var pName = data.name || "未知";
-                if (!otherPlayers[data.id]) {
-                    var icon = L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
-                    var newMarker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
-                    if(pStatus) newMarker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' });
-                    newMarker.bindPopup("🚩 " + pName);
-                    var newPolyline = L.polyline([], { color: '#00ff00', weight: 3, opacity: 0.8, dashArray: '5, 10' }).addTo(map); newPolyline.addLatLng([data.lat, data.lng]);
-                    otherPlayers[data.id] = { marker: newMarker, polyline: newPolyline, lastSeen: now, lat: data.lat, lng: data.lng, avatar: pAvatar, status: pStatus, name: pName };
-                } else {
-                    var p = otherPlayers[data.id]; p.marker.setLatLng([data.lat, data.lng]); p.polyline.addLatLng([data.lat, data.lng]);
-                    p.lastSeen = now; p.lat = data.lat; p.lng = data.lng;
-                    if (p.name !== pName) { p.marker.bindPopup("🚩 " + pName); p.name = pName; }
-                    if (p.avatar !== pAvatar) { p.marker.setIcon(L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] })); p.avatar = pAvatar; }
-                    if (p.status !== pStatus) { p.status = pStatus; pStatus ? p.marker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }) : p.marker.unbindTooltip(); }
-                }
-                updatePlayerList();
-            } catch (e) {}
+                otherPlayers[id] = { marker: marker, polyline: poly, lastSeen: now };
+                
+                // 雷达模式下，新加入的人默认隐藏
+                if (currentGameMode === 'radar') marker.getElement().classList.add('radar-hidden');
+            } else {
+                var p = otherPlayers[id];
+                p.lastSeen = now;
+                p.marker.setLatLng([data.lat, data.lng]);
+                p.polyline.addLatLng([data.lat, data.lng]);
+                
+                // 更新头像（如果是僵尸）
+                var el = p.marker.getElement();
+                if(el) el.innerHTML = data.avatar;
+                
+                // 涂鸦模式更新线颜色
+                if (currentGameMode === 'turf' && data.teamColor) p.polyline.setStyle({ color: data.teamColor, weight: 8 });
+            }
+            updateList();
         }
 
-        // ========================
-        // 🛠️ 辅助功能
-        // ========================
-        var currentViewMode = 'auto';
-        function setViewMode(mode, btnElement) {
-            currentViewMode = mode; var btns = document.querySelectorAll('.view-opt'); btns.forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); applyViewMode();
-        }
-        function applyViewMode() {
-            var body = document.body; var isMobile = false;
-            if (currentViewMode === 'mobile') isMobile = true; else if (currentViewMode === 'pc') isMobile = false; else isMobile = window.innerWidth <= 600;
-            if (isMobile) { body.classList.add('view-mobile'); if (!body.dataset.initMobile) { toggleChat(true); togglePlayerPanel(true); body.dataset.initMobile = "true"; } } else { body.classList.remove('view-mobile'); }
-        }
-        window.addEventListener('resize', function() { if (currentViewMode === 'auto') applyViewMode(); });
-
-        function togglePlayerPanel(forceCollapse) {
-            var content = document.getElementById('player-content'); var icon = document.getElementById('player-toggle-icon'); var isHidden = content.style.display === 'none';
-            if (forceCollapse === true || !isHidden) { content.style.display = 'none'; icon.innerText = "◀"; icon.style.transform = "rotate(90deg)"; } else { content.style.display = 'block'; icon.innerText = "▼"; icon.style.transform = "rotate(0deg)"; }
-        }
-        function toggleChat(forceCollapse) {
-            var panel = document.getElementById('chat-panel'); var icon = document.getElementById('chat-toggle-icon'); var badge = document.getElementById('chat-badge');
-            if (forceCollapse === true || !panel.classList.contains('collapsed')) { panel.classList.add('collapsed'); icon.innerText = "▲"; } else { panel.classList.remove('collapsed'); icon.innerText = "▼"; badge.style.display = 'none'; }
+        function addTreasure(data) {
+            var icon = L.divIcon({ html: '📦', className: 'emoji-marker-icon', iconSize: [24,24] });
+            var marker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
+            // 绑定点击事件：只有距离够近才能看
+            marker.on('click', () => {
+                var dist = map.distance(myLatLng, [data.lat, data.lng]);
+                if (dist < 20) alert("🎉 宝藏内容:\n" + data.note);
+                else alert("🔒 距离太远 ("+Math.round(dist)+"米)\n请走到 20米 内开启！");
+            });
+            treasures.push(marker);
         }
 
-        function toggleMeasure() {
-            isMeasuring = !isMeasuring; var btn = document.getElementById('measure-btn');
-            if(isMeasuring) { btn.classList.add('active'); btn.innerHTML = "❌"; document.getElementById('map').style.cursor = "crosshair"; alert("点击地图两点测量"); if(isFollowing) toggleFollow(); } 
-            else { btn.classList.remove('active'); btn.innerHTML = "📏"; document.getElementById('map').style.cursor = ""; clearMeasure(); }
-        }
-        function clearMeasure() { if(measureLine) map.removeLayer(measureLine); measureTips.forEach(t => map.removeLayer(t)); measurePoints = []; measureTips = []; }
+        function onLocationFound(e) {
+            myLatLng = e.latlng;
+            if (isFollowing) map.panTo(myLatLng);
+            
+            // 绘制自己的轨迹 (支持涂鸦模式换色)
+            if (!myPolyline) myPolyline = L.polyline([], { color: myTeamColor, weight: currentGameMode==='turf'?8:4, opacity: 0.8 }).addTo(map);
+            myPolyline.addLatLng(e.latlng);
+            
+            if (!myMarker) {
+                var icon = L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: myCurrentAvatar, iconSize: [30, 30] });
+                myMarker = L.marker(e.latlng, { icon: icon }).addTo(map).bindPopup("我");
+            } else {
+                myMarker.setLatLng(e.latlng);
+            }
 
-        function toggleFollow() {
-            isFollowing = !isFollowing; var btn = document.getElementById('follow-btn');
-            if(isFollowing) { btn.classList.add('active'); if(myLatLng) map.flyTo(myLatLng, 18); document.getElementById('toast').innerText = "视角跟随已开启"; document.getElementById('toast').style.opacity = 1; setTimeout(()=>document.getElementById('toast').style.opacity=0, 2000); } 
-            else { btn.classList.remove('active'); document.getElementById('toast').innerText = "视角跟随已关闭"; document.getElementById('toast').style.opacity = 1; setTimeout(()=>document.getElementById('toast').style.opacity=0, 2000); }
+            // 发送数据 (包含当前游戏状态)
+            client.publish(currentTopic, JSON.stringify({
+                type: 'player_update', id: myUniqueId, name: myName, 
+                lat: e.latlng.lat, lng: e.latlng.lng, 
+                avatar: myCurrentAvatar, 
+                teamColor: myTeamColor // 用于涂鸦模式
+            }));
         }
 
+        function updateMyMarker() {
+            if(myMarker) {
+                myMarker.setIcon(L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: myCurrentAvatar, iconSize: [30, 30] }));
+            }
+        }
+
+        // ============================================
+        // 🛠️ 辅助 UI 函数 (清理、列表、聊天)
+        // ============================================
+        function clearMap() {
+            for(var id in otherPlayers) { map.removeLayer(otherPlayers[id].marker); map.removeLayer(otherPlayers[id].polyline); }
+            otherPlayers = {};
+            treasures.forEach(t => map.removeLayer(t)); treasures = [];
+            if(currentFlag) { map.removeLayer(currentFlag); currentFlag = null; }
+        }
+        function locateAndShare() { map.locate({ setView: false, maxZoom: 17, enableHighAccuracy: true }); }
+        function triggerManualLocate() { map.locate({ setView: true, maxZoom: 17 }); }
+        function showToast(msg) { var t=document.getElementById('toast'); t.innerText=msg; t.style.opacity=1; setTimeout(()=>t.style.opacity=0, 2000); }
+        
+        function updateList() {
+            var box = document.getElementById('player-list-container'); box.innerHTML = "";
+            for (var id in otherPlayers) {
+                var p = otherPlayers[id];
+                var div = document.createElement('div'); div.className = 'player-item';
+                div.innerHTML = `<span>${p.marker.getElement().innerText} ${p.marker.getPopup().getContent()}</span>`;
+                div.onclick = () => map.flyTo(p.marker.getLatLng(), 18);
+                box.appendChild(div);
+            }
+        }
+        
+        // 聊天相关
+        function appendChat(data) {
+            var box = document.getElementById('chat-messages');
+            var div = document.createElement('div'); div.className = 'chat-msg-row';
+            div.innerHTML = `<b style="color:${data.senderId===myUniqueId?'#1890ff':'#ff4d4f'}">${data.senderName}:</b> ${data.text}`;
+            box.appendChild(div); box.scrollTop = box.scrollHeight;
+        }
+        function sendChat() {
+            var input = document.getElementById('chat-input');
+            if(input.value.trim()) {
+                client.publish(currentTopic, JSON.stringify({ type:'chat', senderId:myUniqueId, senderName:myName, text:input.value }));
+                appendChat({ senderId:myUniqueId, senderName:myName, text:input.value });
+                input.value = "";
+            }
+        }
+        
+        // 旗帜相关
+        function updateFlag(data) {
+            if (data.action === 'add') {
+                if(currentFlag) map.removeLayer(currentFlag);
+                var icon = L.divIcon({ html: '🏁', className: 'flag-icon', iconSize: [30,30] });
+                currentFlag = L.marker([data.lat, data.lng], { icon: icon }).addTo(map).bindPopup(`集合! 发起: ${data.senderName}`);
+            } else if (currentFlag) { map.removeLayer(currentFlag); currentFlag = null; }
+        }
+
+        // 面板切换
+        function togglePlayerPanel() { 
+            var p = document.getElementById('player-content'); 
+            p.style.display = p.style.display==='none'?'block':'none'; 
+        }
+        function toggleChat() { 
+            var p = document.querySelector('.chat-content-wrapper'); 
+            p.style.display = p.style.display==='none'?'block':'none'; 
+        }
         function onMapClick(e) {
             if (isMeasuring) {
                 measurePoints.push(e.latlng);
-                var tip = L.circleMarker(e.latlng, { color: '#00f3ff', radius: 4 }).addTo(map); measureTips.push(tip);
+                L.circleMarker(e.latlng, { radius: 3, color: 'red' }).addTo(map);
                 if (measurePoints.length === 2) {
-                    var p1 = measurePoints[0]; var p2 = measurePoints[1];
-                    var dist = map.distance(p1, p2); var distStr = dist > 1000 ? (dist/1000).toFixed(2) + " km" : Math.round(dist) + " m";
-                    measureLine = L.polyline([p1, p2], { color: '#00f3ff', weight: 2, dashArray: '5, 5' }).addTo(map);
-                    measureLine.bindPopup(`<b>📏 ${distStr}</b>`).openPopup();
-                    measurePoints = []; setTimeout(() => { measureTips.forEach(t => map.removeLayer(t)); measureTips = []; }, 500);
-                } else if (measurePoints.length > 2) { clearMeasure(); }
-            }
-        }
-        function onMapContextMenu(e) {
-            if(isMeasuring) return;
-            if(confirm("🚩 插旗集合？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', senderName: myName, action: 'add', lat: e.latlng.lat, lng: e.latlng.lng }));
-        }
-        window.removeFlag = function() { if(confirm("取消集合点？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', action: 'remove' })); };
-
-        // 聊天
-        function handleChatKey(e) { if(e.key === 'Enter') sendChat(); }
-        function sendChat() {
-            var input = document.getElementById('chat-input'); var text = input.value; if(!text.trim()) return;
-            client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: myUniqueId, senderName: myName, text: text }));
-            appendChatMsg(myName, text, true); input.value = "";
-        }
-        function appendChatMsg(name, text, isMe) {
-            var box = document.getElementById('chat-messages'); var div = document.createElement('div'); div.className = 'chat-msg-row';
-            var senderHtml = isMe ? `<span class="chat-sender" style="color:#1890ff">我:</span>` : `<span class="chat-sender" style="color:#ff4d4f">${name}:</span>`;
-            div.innerHTML = `${senderHtml} <span class="chat-text">${text}</span>`;
-            box.appendChild(div); box.scrollTop = box.scrollHeight;
-            if (!isMe && document.getElementById('chat-panel').classList.contains('collapsed')) { showMsgBubble(name, text); document.getElementById('chat-badge').style.display = 'block'; }
-        }
-        function showMsgBubble(name, text) {
-            var container = document.getElementById('msg-bubble-container'); var bubble = document.createElement('div'); bubble.className = 'msg-bubble';
-            bubble.innerText = `${name}: ${text}`; container.appendChild(bubble); setTimeout(() => { bubble.style.opacity = '0'; setTimeout(() => bubble.remove(), 300); }, 3000);
-        }
-
-        // 定位与更新
-        function triggerQuietUpdate() { clearTimeout(debounceTimer); debounceTimer = setTimeout(function() { locateAndShare(false); }, 800); }
-        document.getElementById('my-name-input').addEventListener('input', function(e) { myName = e.target.value.trim(); localStorage.setItem('my_nickname', myName); triggerQuietUpdate(); });
-        document.getElementById('my-avatar-input').addEventListener('input', function(e) { myCurrentAvatar = e.target.value; updateMyMarkerVisuals(); triggerQuietUpdate(); });
-        document.getElementById('my-status-input').addEventListener('input', function(e) { myCurrentStatus = e.target.value; updateMyMarkerVisuals(); triggerQuietUpdate(); });
-
-        function updateMyMarkerVisuals() {
-            if(!myMarker) return;
-            var arrowHtml = `<div class="heading-arrow"></div>` + myCurrentAvatar;
-            myMarker.setIcon(L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }));
-            if (myCurrentStatus) myMarker.bindTooltip(myCurrentStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }); else myMarker.unbindTooltip();
-            updateHeadingVisuals();
-        }
-        function updatePlayerList() {
-            var container = document.getElementById('player-list-container'); container.innerHTML = ""; var hasPlayers = false;
-            for (var id in otherPlayers) {
-                hasPlayers = true; var p = otherPlayers[id];
-                var distText = "--"; if (myLatLng) { var d = map.distance(myLatLng, [p.lat, p.lng]); d > 1000 ? distText = (d/1000).toFixed(1)+"km" : distText = Math.round(d)+"m"; }
-                var statusHtml = p.status ? `<div class="player-status-text">💬 ${p.status}</div>` : '';
-                var item = document.createElement('div'); item.className = 'player-item';
-                item.innerHTML = `<div class="player-info"><div class="player-head"><span>${p.avatar}</span><span>${p.name}</span></div>${statusHtml}</div><div class="player-dist">${distText}</div>`;
-                (function(targetLat, targetLng) { item.onclick = function() { map.flyTo([targetLat, targetLng], 18, { duration: 1.5 }); }; })(p.lat, p.lng);
-                container.appendChild(item);
-            }
-            if (!hasPlayers) container.innerHTML = '<div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">暂无其他人</div>';
-        }
-
-        function locateAndShare(showAlert = false) { map.locate({ setView: false, maxZoom: 17, timeout: 30000, enableHighAccuracy: true, maximumAge: 0 }); if(showAlert) alert("正在刷新位置..."); }
-        function triggerManualLocate() { locateAndShare(true); }
-        var isFirstLocate = true;
-        function onLocationFound(e) {
-            myLatLng = e.latlng; 
-            if (isFollowing) map.panTo(myLatLng);
-            if (!myPolyline) myPolyline = L.polyline([], { color: '#00f3ff', weight: 4, opacity: 0.8 }).addTo(map); myPolyline.addLatLng(e.latlng);
-            if (!myMarker) { 
-                var arrowHtml = `<div class="heading-arrow"></div>` + myCurrentAvatar;
-                myMarker = L.marker(e.latlng, { icon: L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }) }).addTo(map).bindPopup("<b>我</b>").openPopup(); if(myCurrentStatus) updateMyMarkerVisuals(); 
-            } else myMarker.setLatLng(e.latlng);
-            if (isFirstLocate) { map.setView(e.latlng, 17); isFirstLocate = false; }
-            client.publish(currentTopic, JSON.stringify({ type: 'player_update', id: myUniqueId, name: myName, lat: e.latlng.lat, lng: e.latlng.lng, avatar: myCurrentAvatar, status: myCurrentStatus }));
-        }
-
-        if (window.DeviceOrientationEvent) {
-            window.addEventListener('deviceorientation', function(event) {
-                if (event.alpha !== null) {
-                    var heading = event.webkitCompassHeading || (360 - event.alpha);
-                    myHeading = heading; updateHeadingVisuals();
+                    var dist = map.distance(measurePoints[0], measurePoints[1]);
+                    alert("距离: " + Math.round(dist) + " 米");
+                    measurePoints = [];
                 }
-            }, true);
+            }
         }
-        function updateHeadingVisuals() {
-            var arrow = document.querySelector('.my-icon-style .heading-arrow');
-            if(arrow) { arrow.style.display = 'block'; arrow.style.transform = `translateX(-50%) rotate(${myHeading}deg)`; }
-        }
+        function toggleMeasure() { isMeasuring = !isMeasuring; showToast(isMeasuring ? "点击两点测量" : "测量结束"); }
+        function toggleFollow() { isFollowing = !isFollowing; showToast(isFollowing ? "视角跟随开启" : "视角跟随关闭"); }
+
     </script>
 </body>
 </html>
