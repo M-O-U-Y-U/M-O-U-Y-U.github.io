@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU 共享地图 (V6.0 电子围栏版)</title>
+    <title>MOUYU 共享地图 (V6.1 优化版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -13,7 +13,9 @@
            ======================== */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
-        #map { height: 100vh; width: 100%; }
+        
+        /* 优化：使用 dvh 解决移动端地址栏遮挡问题 */
+        #map { height: 100vh; height: 100dvh; width: 100%; }
         
         /* 遮罩与弹窗通用 */
         .overlay-mask {
@@ -46,11 +48,10 @@
         .btn-black { background: #333; color: #fff; }
         .btn-orange { background: #fa8c16; color: #fff; }
 
-        /* 通用弹窗按钮组 */
         .dialog-btns { display: flex; gap: 10px; width: 100%; }
         .dialog-btns button { flex: 1; }
 
-        /* 地图按钮 */
+        /* 地图按钮 (位置微调) */
         .map-btn {
             background: white; border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             padding: 8px 12px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; transition: all 0.2s;
@@ -58,15 +59,11 @@
         }
         .map-btn:active { background: #f0f0f0; transform: scale(0.95); }
         .map-btn.active { background: #e6f7ff; color: #1890ff; border: 1px solid #1890ff; }
+        
+        /* 调整按钮位置，填补SOS留下的空缺 */
         .locate-btn { position: absolute; bottom: 40px; right: 20px; z-index: 999; padding: 12px 20px; border-radius: 50px; }
         .follow-btn { position: absolute; bottom: 100px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
         .measure-btn { position: absolute; bottom: 150px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
-        .sos-btn {
-            position: absolute; bottom: 210px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%;
-            background: #ff4d4f; color: white; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 4px 10px rgba(255, 77, 79, 0.4);
-            display: flex; align-items: center; justify-content: center; animation: pulse-shadow 2s infinite;
-        }
-        @keyframes pulse-shadow { 0% { box-shadow: 0 0 0 0 rgba(255, 77, 79, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 77, 79, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 77, 79, 0); } }
 
         /* 面板样式 */
         .player-list-panel {
@@ -81,7 +78,6 @@
             .locate-btn { bottom: 30px; right: 10px; padding: 10px 15px; font-size: 12px; }
             .follow-btn { bottom: 90px; right: 10px; width: 36px; height: 36px; }
             .measure-btn { bottom: 135px; right: 10px; width: 36px; height: 36px; }
-            .sos-btn { bottom: 180px; right: 10px; width: 36px; height: 36px; }
             .room-setting-box { padding: 8px !important; }
         }
 
@@ -138,9 +134,7 @@
         .leaflet-tooltip-bottom:before { display: none; }
         
         .flag-icon { font-size: 30px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); animation: bounce 1s infinite; }
-        .sos-marker-pulse { border: 3px solid #ff4d4f; background: rgba(255, 77, 79, 0.4); border-radius: 50%; animation: markerPulse 1.5s infinite; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        @keyframes markerPulse { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
         @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
 
         .msg-bubble-container { position: absolute; bottom: 45px; left: 0; width: 100%; pointer-events: none; display: flex; flex-direction: column-reverse; align-items: flex-start; }
@@ -149,7 +143,6 @@
         .chat-badge { display: none; width: 8px; height: 8px; background: #ff4d4f; border-radius: 50%; margin-right: 5px; }
         
         .toast-tip { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity 0.5s; z-index: 2000; }
-        .sos-alert-box { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: #ff4d4f; color: white; padding: 15px 30px; border-radius: 50px; font-weight: bold; box-shadow: 0 5px 20px rgba(255, 77, 79, 0.6); z-index: 3000; display: none; animation: shake 0.5s; cursor: pointer; }
         .leaflet-control-scale { margin-bottom: 5px !important; margin-left: 10px !important; }
 
         /* ========================
@@ -310,7 +303,6 @@
     </div>
 
     <div id="toast" class="toast-tip">长按地图插旗 | 点击直尺测量</div>
-    <div id="sos-alert" class="sos-alert-box" onclick="this.style.display='none'">🚨 收到 SOS 求救信号！(点击关闭)</div>
 
     <div class="player-list-panel" id="player-panel">
         <div class="panel-header" onclick="togglePlayerPanel()">
@@ -393,7 +385,6 @@
 
     <div id="map"></div>
     
-    <button class="map-btn sos-btn" onclick="openSOSConfirm()" title="发送SOS求救">SOS</button>
     <button class="map-btn measure-btn" id="measure-btn" onclick="toggleMeasure()" title="测量距离">📏</button>
     <button class="map-btn follow-btn" id="follow-btn" onclick="toggleFollow()" title="视角跟随">🔄</button>
     <button class="map-btn locate-btn" onclick="triggerManualLocate()">📍 定位我</button>
@@ -517,7 +508,7 @@
         var map, client, satellite, streetMap, darkMap, osmMap;
         var myUniqueId, myName;
         var otherPlayers = {}; var myLatLng = null; var myMarker = null; var myPolyline = null;
-        var myCurrentAvatar = "😼"; var myCurrentStatus = ""; var currentFlag = null; var sosMarkers = [];
+        var myCurrentAvatar = "😼"; var myCurrentStatus = ""; var currentFlag = null; 
         var isMeasuring = false; var measurePoints = []; var measureLine = null; var measureTips = [];
         var isFollowing = false; var myHeading = 0; 
         var currentTopic = ""; 
@@ -541,6 +532,11 @@
         var outOfBoundsTimer = null;
 
         function startApp() {
+            // 尝试保持屏幕常亮
+            if ('wakeLock' in navigator) {
+                try { navigator.wakeLock.request('screen'); } catch(e) {}
+            }
+
             darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
             osmMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
             satellite = L.layerGroup([
@@ -655,7 +651,6 @@
                 }
                 otherPlayers = {}; updatePlayerList();
                 if(currentFlag) { map.removeLayer(currentFlag); currentFlag = null; }
-                sosMarkers.forEach(m => map.removeLayer(m)); sosMarkers = [];
                 document.getElementById('chat-messages').innerHTML = '<div class="chat-msg-row" style="color:#999; font-style:italic;">已切换房间...</div>';
             }
             currentTopic = newTopic;
@@ -835,11 +830,12 @@
                 var candidates = Object.keys(otherPlayers);
                 candidates.push(myUniqueId);
                 
+                // 随机抽取 zCount 个母体
                 var targetIds = [];
                 for(var i=0; i<zCount && candidates.length > 0; i++) {
                     var idx = Math.floor(Math.random() * candidates.length);
                     targetIds.push(candidates[idx]);
-                    candidates.splice(idx, 1); 
+                    candidates.splice(idx, 1); // 避免重复
                 }
                 
                 publishData({ type: 'game_infect_batch', targets: targetIds });
@@ -876,8 +872,10 @@
             var survivors = total - zombies;
             
             if (survivors === 0 && zombies > 0) {
+                // 主动清理定时器，停止倒计时逻辑
                 if(localTimerInterval) clearInterval(localTimerInterval);
-                isGameRunning = false; 
+                isGameRunning = false; // 标记游戏结束
+                
                 showWinModal("🧟‍♂️ 僵尸获胜", "全员感染，无人生还", "red");
             }
         }
@@ -1019,6 +1017,7 @@
                         }, 1000);
                     }
 
+                    // 批量感染逻辑
                     if (data.type === 'game_infect_batch') {
                         var targets = data.targets || [];
                         targets.forEach(function(tid) {
@@ -1049,7 +1048,6 @@
                         return;
                     }
                 }
-                
                 // -----------------------
 
                 if (data.type === 'sos') {
