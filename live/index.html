@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU的共享地图</title>
+    <title>MOUYU的共享地图 (加密版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
+        /* ========================
+           原有样式保持不变
+           ======================== */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
         #map { height: 100vh; width: 100%; }
         
-        /* ========================
-           🔐 1. 全站门禁样式
-           ======================== */
         #login-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px);
@@ -39,9 +39,6 @@
         }
         .login-btn:active { background: #096dd9; transform: scale(0.98); }
 
-        /* ========================
-           📱 2. 移动端 UI 优化
-           ======================== */
         .map-btn {
             background: white; border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             padding: 8px 12px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; transition: all 0.2s;
@@ -54,27 +51,23 @@
         .follow-btn { position: absolute; bottom: 100px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
         .measure-btn { position: absolute; bottom: 150px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
 
-        /* 面板基础样式 */
         .player-list-panel {
             position: absolute; top: 20px; right: 20px; z-index: 1000;
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
             padding: 15px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            width: 260px; /* 稍微加宽一点适配房间输入 */
+            width: 260px;
             max-height: 70vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.5);
             transition: all 0.3s ease;
         }
-        /* 手机端面板适配 */
         @media (max-width: 600px) {
             .player-list-panel {
-                width: 200px; /* 手机上窄一点 */
+                width: 200px;
                 top: 10px; right: 10px;
                 padding: 10px;
             }
             .locate-btn { bottom: 30px; right: 10px; padding: 10px 15px; font-size: 12px; }
             .follow-btn { bottom: 90px; right: 10px; width: 36px; height: 36px; }
             .measure-btn { bottom: 135px; right: 10px; width: 36px; height: 36px; }
-            
-            /* 房间设置区域在手机上的优化 */
             .room-setting-box { padding: 6px !important; }
             .room-input-row { flex-direction: column; align-items: flex-start !important; gap: 4px !important; }
             .room-input-row .setting-label { width: 100% !important; margin-bottom: 2px; }
@@ -167,9 +160,9 @@
                 </div>
                 <div class="user-setting-row room-input-row">
                     <span class="setting-label" style="font-weight:bold; color:#0050b3;">密码</span>
-                    <input type="text" id="pass-input" class="status-input" placeholder="加密(可选)" style="background:white;">
+                    <input type="text" id="pass-input" class="status-input" placeholder="作为加密密钥(重要)" style="background:white;">
                 </div>
-                <button class="gpx-btn" onclick="joinRoom()" style="background:#1890ff; margin-top:5px; height: 32px; line-height: 1;">🚪 进入房间</button>
+                <button class="gpx-btn" onclick="joinRoom()" style="background:#1890ff; margin-top:5px; height: 32px; line-height: 1;">🚪 进入房间 (重置加密)</button>
             </div>
             
             <div style="padding-bottom: 10px; border-bottom: 1px dashed #eee; margin-bottom: 10px;">
@@ -229,20 +222,28 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
     <script>
         // ============================================
-        // 🔐 网站门禁逻辑 (在这里修改密码！)
+        // 🔐 1. 网站门禁逻辑 (增强版：哈希校验)
         // ============================================
-        var SITE_PASSWORD = "666"; // <--- 请在这里修改你的网站访问密码！
+        
+        // 我们不再存储明文 "666"，而是存储它的 SHA256 哈希值
+        // 对应密码 "666" 的哈希值: fae0b27c451c728867a567e8c1bb4e53db605cf79c2e74d15682857432f6b86e
+        var SITE_HASH = "fae0b27c451c728867a567e8c1bb4e53db605cf79c2e74d15682857432f6b86e"; 
+
         var isSystemUnlocked = false;
 
         function checkSitePassword() {
             var input = document.getElementById('site-password').value;
-            if (input === SITE_PASSWORD) {
+            // 计算输入内容的哈希
+            var inputHash = CryptoJS.SHA256(input).toString();
+
+            if (inputHash === SITE_HASH) {
                 document.getElementById('login-overlay').style.display = 'none';
                 isSystemUnlocked = true;
-                startApp(); // 密码正确才启动地图和MQTT
+                startApp(); 
             } else {
                 var err = document.getElementById('login-error');
                 err.style.opacity = 1;
@@ -251,7 +252,61 @@
         }
         
         // ============================================
-        // 🗺️ 地图与系统核心 (被包裹在 startApp 中)
+        // 🔐 2. 数据加密/解密核心逻辑
+        // ============================================
+        
+        function getRoomPassword() {
+            return document.getElementById('pass-input').value.trim();
+        }
+
+        // 发送前：加密
+        function encryptPayload(dataObj) {
+            var pass = getRoomPassword();
+            var jsonStr = JSON.stringify(dataObj);
+            
+            if (!pass) {
+                // 如果没有设置房间密码，直接发送明文（不推荐，但兼容旧逻辑）
+                return jsonStr; 
+            }
+            
+            // 使用 AES 加密，并在前面加上 "ENC:" 前缀标识
+            var encrypted = CryptoJS.AES.encrypt(jsonStr, pass).toString();
+            return "ENC:" + encrypted;
+        }
+
+        // 接收后：解密
+        function decryptPayload(payloadStr) {
+            var pass = getRoomPassword();
+
+            // 1. 检查是否是加密数据
+            if (payloadStr.startsWith("ENC:")) {
+                if (!pass) return null; // 数据是加密的，但我没填密码 -> 无法解密
+                
+                try {
+                    // 尝试解密
+                    var ciphertext = payloadStr.substring(4); // 去掉 "ENC:"
+                    var bytes = CryptoJS.AES.decrypt(ciphertext, pass);
+                    var originalText = bytes.toString(CryptoJS.enc.Utf8);
+                    
+                    if (!originalText) return null; // 密码错误导致解密为空
+                    
+                    return JSON.parse(originalText);
+                } catch (e) {
+                    console.log("解密失败：密码错误或数据损坏");
+                    return null;
+                }
+            } else {
+                // 2. 如果数据不是以 ENC: 开头，说明是明文数据
+                // 如果我设置了密码，但我收到了明文，是否要丢弃？
+                // 为了安全性，如果我设置了密码，建议只接收加密数据，防止干扰。
+                if (pass) return null; 
+                
+                return JSON.parse(payloadStr);
+            }
+        }
+
+        // ============================================
+        // 🗺️ 地图与系统核心
         // ============================================
         var map, client, satellite, streetMap, darkMap;
         var myUniqueId, myName;
@@ -263,7 +318,7 @@
         var debounceTimer = null;
 
         function startApp() {
-            // 1. 初始化地图图层
+            // 初始化地图图层
             darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
             satellite = L.layerGroup([
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
@@ -271,15 +326,11 @@
             ]);
             streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB', maxZoom: 20 });
 
-            // 2. 创建地图 - ✅ 默认使用卫星图 (satellite)，并加入图层控制器
             map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [satellite], zoomControl: false });
             L.control.zoom({position: 'topleft'}).addTo(map);
-            
-            // ✅ 改名："🌑 夜间模式" 和 "🛰️ 卫星图"
             L.control.layers({ "🛰️ 卫星图": satellite, "🌑 夜间模式": darkMap, "☀️ 街道图": streetMap }).addTo(map);
             L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
             
-            // 3. 用户信息
             myUniqueId = localStorage.getItem('my_unique_id');
             if (!myUniqueId) {
                 myUniqueId = "uid_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
@@ -290,7 +341,6 @@
             document.getElementById('my-name-input').value = myName;
             document.getElementById('my-status-text').innerText = "系统ID: " + myUniqueId.substring(0,8)+"...";
             
-            // 4. 连接 MQTT (只有密码正确才会执行这里)
             client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
             client.on('connect', function () { 
                 console.log('✅ MQTT Connected'); 
@@ -298,25 +348,21 @@
             });
             client.on('message', handleMqttMessage);
             
-            // 5. 绑定地图事件
             map.on('click', onMapClick);
             map.on('dragstart', function() { if(isFollowing) toggleFollow(); });
             map.on('contextmenu', onMapContextMenu);
             map.on('locationfound', onLocationFound);
             map.on('locationerror', function(e) { console.log("定位中..."); });
 
-            // 6. 启动定位
             locateAndShare(false); 
             setInterval(() => locateAndShare(false), 3000);
             
-            // 7. 启动清理定时器
             setInterval(function() {
                 var now = Date.now(); var listChanged = false;
                 for (var id in otherPlayers) { if (now - otherPlayers[id].lastSeen > 10000) { map.removeLayer(otherPlayers[id].marker); if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); delete otherPlayers[id]; listChanged = true; } }
                 if(listChanged) updatePlayerList();
             }, 2000);
 
-            // 8. 提示Toast
             setTimeout(function(){ var t = document.getElementById('toast'); t.style.opacity = 1; setTimeout(function(){ t.style.opacity = 0; }, 3000); }, 1000);
             
             applyViewMode();
@@ -325,42 +371,62 @@
         // ========================
         // 🏠 房间逻辑
         // ========================
-        function getTopic(room, pass) {
+        function getTopic(room) {
+            // 注意：因为我们现在使用 AES 对内容加密，
+            // 这里的 pass 就不再放入 topic 路径了，topic 只用房间名区分。
+            // 这样，即使进了同一个频道，如果密码不对，也解不开内容。
             if (!room) room = "大厅";
-            var safeRoom = encodeURIComponent(room);
-            var safePass = pass ? "_" + encodeURIComponent(pass) : "";
-            return 'mouyu/live/' + safeRoom + safePass;
+            return 'mouyu/live/' + encodeURIComponent(room);
         }
 
         function joinRoom() {
             var room = document.getElementById('room-input').value.trim();
-            var pass = document.getElementById('pass-input').value.trim();
-            var newTopic = getTopic(room, pass);
+            // 密码现在只作为加密Key，不参与 Topic 生成
+            var newTopic = getTopic(room);
 
-            if (currentTopic === newTopic) { alert("你已经在房间 [" + room + "] 里了"); return; }
+            if (currentTopic === newTopic) { 
+                // 即使房间没变，如果密码变了，也需要重新刷新一下
+                 // alert("已更新加密设置");
+            }
+
             if (currentTopic && client.connected) {
                 client.unsubscribe(currentTopic);
                 for(var id in otherPlayers) { map.removeLayer(otherPlayers[id].marker); if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); }
                 otherPlayers = {}; updatePlayerList();
                 if(currentFlag) { map.removeLayer(currentFlag); currentFlag = null; }
-                document.getElementById('chat-messages').innerHTML = '<div class="chat-msg-row" style="color:#999; font-style:italic;">已切换房间...</div>';
+                document.getElementById('chat-messages').innerHTML = '<div class="chat-msg-row" style="color:#999; font-style:italic;">已切换房间/密钥...</div>';
             }
             currentTopic = newTopic;
             if (client.connected) {
                 client.subscribe(currentTopic);
-                client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: 'SYS', senderName: '系统', text: `${myName} 进房` }));
+                publishData({ type: 'chat', senderId: 'SYS', senderName: '系统', text: `${myName} 进房` });
                 triggerManualLocate();
             }
-            alert("✅ 已进入: " + room);
+            alert("✅ 已进入: " + room + "\n🔐 加密: " + (getRoomPassword() ? "开启" : "关闭"));
             document.querySelector('.panel-title').innerText = "📡 房间: " + room;
         }
 
+        // 封装统一的发送函数（带加密）
+        function publishData(dataObj) {
+            if (!client || !client.connected) return;
+            var payload = encryptPayload(dataObj);
+            client.publish(currentTopic, payload);
+        }
+
         // ========================
-        // 📡 MQTT 消息处理
+        // 📡 MQTT 消息处理 (含解密)
         // ========================
         function handleMqttMessage(topic, message) {
             try {
-                var data = JSON.parse(message.toString());
+                // 1. 尝试解密
+                var data = decryptPayload(message.toString());
+                
+                // 2. 如果解密失败（返回 null），说明密码不对
+                if (!data) {
+                    // 可以在控制台记录，或者忽略
+                    return; 
+                }
+
                 if (data.type === 'chat') { if (data.senderId !== myUniqueId) appendChatMsg(data.senderName, data.text, false); return; }
                 if (data.type === 'flag_update') {
                     if (data.action === 'add') {
@@ -388,7 +454,9 @@
                     if (p.status !== pStatus) { p.status = pStatus; pStatus ? p.marker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }) : p.marker.unbindTooltip(); }
                 }
                 updatePlayerList();
-            } catch (e) {}
+            } catch (e) {
+                console.error("Msg Error", e);
+            }
         }
 
         // ========================
@@ -442,15 +510,15 @@
         }
         function onMapContextMenu(e) {
             if(isMeasuring) return;
-            if(confirm("🚩 插旗集合？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', senderName: myName, action: 'add', lat: e.latlng.lat, lng: e.latlng.lng }));
+            if(confirm("🚩 插旗集合？")) publishData({ type: 'flag_update', senderName: myName, action: 'add', lat: e.latlng.lat, lng: e.latlng.lng });
         }
-        window.removeFlag = function() { if(confirm("取消集合点？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', action: 'remove' })); };
+        window.removeFlag = function() { if(confirm("取消集合点？")) publishData({ type: 'flag_update', action: 'remove' }); };
 
         // 聊天
         function handleChatKey(e) { if(e.key === 'Enter') sendChat(); }
         function sendChat() {
             var input = document.getElementById('chat-input'); var text = input.value; if(!text.trim()) return;
-            client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: myUniqueId, senderName: myName, text: text }));
+            publishData({ type: 'chat', senderId: myUniqueId, senderName: myName, text: text });
             appendChatMsg(myName, text, true); input.value = "";
         }
         function appendChatMsg(name, text, isMe) {
@@ -504,7 +572,9 @@
                 myMarker = L.marker(e.latlng, { icon: L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }) }).addTo(map).bindPopup("<b>我</b>").openPopup(); if(myCurrentStatus) updateMyMarkerVisuals(); 
             } else myMarker.setLatLng(e.latlng);
             if (isFirstLocate) { map.setView(e.latlng, 17); isFirstLocate = false; }
-            client.publish(currentTopic, JSON.stringify({ type: 'player_update', id: myUniqueId, name: myName, lat: e.latlng.lat, lng: e.latlng.lng, avatar: myCurrentAvatar, status: myCurrentStatus }));
+            
+            // 使用封装的发布函数
+            publishData({ type: 'player_update', id: myUniqueId, name: myName, lat: e.latlng.lat, lng: e.latlng.lng, avatar: myCurrentAvatar, status: myCurrentStatus });
         }
 
         if (window.DeviceOrientationEvent) {
