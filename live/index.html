@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU 共享地图 </title>
+    <title>MOUYU 共享地图 (V6.2 稳定优化版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -13,9 +13,7 @@
            ======================== */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
-        
-        /* 优化：使用 dvh 解决移动端地址栏遮挡问题 */
-        #map { height: 100vh; height: 100dvh; width: 100%; }
+        #map { height: 100vh; height: 100dvh; width: 100%; } /* 适配移动端地址栏 */
         
         /* 遮罩与弹窗通用 */
         .overlay-mask {
@@ -51,7 +49,7 @@
         .dialog-btns { display: flex; gap: 10px; width: 100%; }
         .dialog-btns button { flex: 1; }
 
-        /* 地图按钮 (位置微调) */
+        /* 地图按钮 */
         .map-btn {
             background: white; border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             padding: 8px 12px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; transition: all 0.2s;
@@ -60,7 +58,6 @@
         .map-btn:active { background: #f0f0f0; transform: scale(0.95); }
         .map-btn.active { background: #e6f7ff; color: #1890ff; border: 1px solid #1890ff; }
         
-        /* 调整按钮位置，填补SOS留下的空缺 */
         .locate-btn { position: absolute; bottom: 40px; right: 20px; z-index: 999; padding: 12px 20px; border-radius: 50px; }
         .follow-btn { position: absolute; bottom: 100px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
         .measure-btn { position: absolute; bottom: 150px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
@@ -134,7 +131,9 @@
         .leaflet-tooltip-bottom:before { display: none; }
         
         .flag-icon { font-size: 30px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); animation: bounce 1s infinite; }
+        .sos-marker-pulse { border: 3px solid #ff4d4f; background: rgba(255, 77, 79, 0.4); border-radius: 50%; animation: markerPulse 1.5s infinite; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes markerPulse { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
         @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
 
         .msg-bubble-container { position: absolute; bottom: 45px; left: 0; width: 100%; pointer-events: none; display: flex; flex-direction: column-reverse; align-items: flex-start; }
@@ -505,7 +504,7 @@
         // ============================================
         // 🗺️ 核心逻辑
         // ============================================
-        var map, client, satellite, streetMap, darkMap, osmMap;
+        var map, client, satellite, streetMap, darkMap;
         var myUniqueId, myName;
         var otherPlayers = {}; var myLatLng = null; var myMarker = null; var myPolyline = null;
         var myCurrentAvatar = "😼"; var myCurrentStatus = ""; var currentFlag = null; 
@@ -532,13 +531,18 @@
         var outOfBoundsTimer = null;
 
         function startApp() {
-            // 尝试保持屏幕常亮
+            // 尝试保持屏幕常亮 (Wake Lock API)
             if ('wakeLock' in navigator) {
                 try { navigator.wakeLock.request('screen'); } catch(e) {}
             }
+            // 页面可见性改变时重新申请
+            document.addEventListener('visibilitychange', async () => {
+                if (document.visibilityState === 'visible' && 'wakeLock' in navigator) {
+                    try { await navigator.wakeLock.request('screen'); } catch(e) {}
+                }
+            });
 
             darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
-            osmMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
             satellite = L.layerGroup([
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
@@ -547,7 +551,7 @@
 
             map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [satellite], zoomControl: false });
             L.control.zoom({position: 'topleft'}).addTo(map);
-            L.control.layers({ "🛰️ 卫星图": satellite, "🗺️ OSM地图": osmMap, "🌑 夜间模式": darkMap, "☀️ 简洁图": streetMap }).addTo(map);
+            L.control.layers({ "🛰️ 卫星图": satellite, "🌑 夜间模式": darkMap, "☀️ 简洁图": streetMap }).addTo(map);
             L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
             
             // 随机 ID
@@ -565,7 +569,7 @@
             client.on('connect', function () { 
                 console.log('✅ MQTT Connected'); 
                 updateNetStatus(true);
-                // 默认加入大厅
+                // 默认加入大厅 (静默加入，不显示提示)
                 joinRoom(false, 'normal', true);
             });
             client.on('offline', function() { updateNetStatus(false); });
@@ -794,17 +798,6 @@
         // 🚨 SOS & 游戏逻辑
         // ==========================
         
-        function openSOSConfirm() {
-            if(!myLatLng) { showToast("尚未获取到位置！"); return; }
-            document.getElementById('sos-confirm-overlay').style.display = 'flex';
-        }
-        function cancelSOS() { document.getElementById('sos-confirm-overlay').style.display = 'none'; }
-        function confirmSOS() {
-            document.getElementById('sos-confirm-overlay').style.display = 'none';
-            publishData({ type: 'sos', senderId: myUniqueId, senderName: myName, lat: myLatLng.lat, lng: myLatLng.lng });
-            showToast("🚨 SOS 信号已发送！");
-        }
-
         function initiateVote() {
             if(!isBioMode) return;
             publishData({ type: 'vote_init', initiator: myName });
@@ -872,10 +865,8 @@
             var survivors = total - zombies;
             
             if (survivors === 0 && zombies > 0) {
-                // 主动清理定时器，停止倒计时逻辑
                 if(localTimerInterval) clearInterval(localTimerInterval);
-                isGameRunning = false; // 标记游戏结束
-                
+                isGameRunning = false; 
                 showWinModal("🧟‍♂️ 僵尸获胜", "全员感染，无人生还", "red");
             }
         }
@@ -1017,7 +1008,6 @@
                         }, 1000);
                     }
 
-                    // 批量感染逻辑
                     if (data.type === 'game_infect_batch') {
                         var targets = data.targets || [];
                         targets.forEach(function(tid) {
@@ -1048,23 +1038,7 @@
                         return;
                     }
                 }
-                // -----------------------
-
-                if (data.type === 'sos') {
-                    if (data.senderId !== myUniqueId) {
-                        var sosAlert = document.getElementById('sos-alert');
-                        sosAlert.style.display = 'block';
-                        sosAlert.innerText = `🚨 ${data.senderName} 发出求救！`;
-                        map.flyTo([data.lat, data.lng], 18, { animate: true, duration: 2 });
-                        var pulseIcon = L.divIcon({ className: 'sos-marker-pulse', iconSize: [50, 50], iconAnchor: [25, 25] });
-                        var sosM = L.marker([data.lat, data.lng], { icon: pulseIcon }).addTo(map)
-                            .bindPopup(`<b style="color:red">🆘 ${data.senderName} 需要帮助!</b><br>时间: ${new Date().toLocaleTimeString()}`).openPopup();
-                        sosMarkers.push(sosM);
-                        setTimeout(() => { map.removeLayer(sosM); }, 60000);
-                    }
-                    return;
-                }
-
+                
                 if (data.type === 'chat') { 
                     if (data.senderId !== myUniqueId) appendChatMsg(data.senderName, data.text, false); 
                     return; 
@@ -1108,7 +1082,8 @@
                     var p = otherPlayers[data.id]; 
                     p.marker.setLatLng([data.lat, data.lng]); 
                     p.polyline.addLatLng([data.lat, data.lng]);
-                    if(p.polyline.getLatLngs().length > 50) {
+                    // 优化：轨迹限制长度，防止卡顿
+                    if(p.polyline.getLatLngs().length > 500) {
                          var pts = p.polyline.getLatLngs();
                          pts.shift();
                          p.polyline.setLatLngs(pts);
@@ -1236,6 +1211,10 @@
             var box = document.getElementById('chat-messages'); var div = document.createElement('div'); div.className = 'chat-msg-row';
             var senderHtml = isMe ? `<span class="chat-sender" style="color:#1890ff">我:</span>` : `<span class="chat-sender" style="color:#ff4d4f">${name}:</span>`;
             div.innerHTML = `${senderHtml} <span class="chat-text">${text}</span>`;
+            
+            // 优化：限制消息数量，防止卡顿
+            if (box.children.length > 100) box.removeChild(box.firstChild);
+            
             box.appendChild(div); box.scrollTop = box.scrollHeight;
             if (!isMe && document.getElementById('chat-panel').classList.contains('collapsed')) { showMsgBubble(name, text); document.getElementById('chat-badge').style.display = 'block'; }
         }
@@ -1292,8 +1271,14 @@
             myLatLng = e.latlng; 
             if (isFollowing) map.panTo(myLatLng);
             
+            // 优化：限制本地轨迹长度
             if (!myPolyline) myPolyline = L.polyline([], { color: '#3388ff', weight: 4, opacity: 0.8 }).addTo(map); 
             myPolyline.addLatLng(e.latlng);
+            if(myPolyline.getLatLngs().length > 500) {
+                 var pts = myPolyline.getLatLngs();
+                 pts.shift();
+                 myPolyline.setLatLngs(pts);
+            }
 
             if (!myMarker) { 
                 var arrowHtml = `<div class="heading-arrow"></div>` + myCurrentAvatar;
@@ -1307,7 +1292,6 @@
             
             // 🧟‍♂️ 生化模式逻辑
             if (isBioMode && isGameRunning) {
-                
                 // 1. 电子围栏检测
                 if(fencePoints.length > 0) {
                     var isInside = isPointInPolygon(e.latlng.lat, e.latlng.lng, fencePoints);
