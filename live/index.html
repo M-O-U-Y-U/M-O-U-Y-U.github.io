@@ -3,16 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU的共享实时位置地图</title>
+    <title>MOUYU的共享地图</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
         #map { height: 100vh; width: 100%; }
         
-        /* 通用按钮 */
+        /* ========================
+           🔐 1. 全站门禁样式
+           ======================== */
+        #login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px);
+            z-index: 9999; display: flex; justify-content: center; align-items: center;
+            flex-direction: column; color: white;
+        }
+        .login-box {
+            background: white; padding: 30px; border-radius: 16px; width: 90%; max-width: 320px;
+            text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            animation: popUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .login-title { color: #333; font-size: 20px; font-weight: bold; margin-bottom: 20px; }
+        .login-input {
+            width: 100%; padding: 12px; font-size: 16px; border: 2px solid #eee; border-radius: 8px;
+            margin-bottom: 15px; text-align: center; outline: none; transition: 0.3s;
+        }
+        .login-input:focus { border-color: #1890ff; }
+        .login-btn {
+            width: 100%; padding: 12px; background: #1890ff; color: white; border: none;
+            border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;
+        }
+        .login-btn:active { background: #096dd9; transform: scale(0.98); }
+
+        /* ========================
+           📱 2. 移动端 UI 优化
+           ======================== */
         .map-btn {
             background: white; border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             padding: 8px 12px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; transition: all 0.2s;
@@ -21,31 +50,51 @@
         .map-btn:active { background: #f0f0f0; transform: scale(0.95); }
         .map-btn.active { background: #e6f7ff; color: #1890ff; border: 1px solid #1890ff; }
 
-        /* 按钮位置 */
         .locate-btn { position: absolute; bottom: 40px; right: 20px; z-index: 999; padding: 12px 20px; border-radius: 50px; }
         .follow-btn { position: absolute; bottom: 100px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
         .measure-btn { position: absolute; bottom: 150px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
 
-        /* 玩家列表面板 */
+        /* 面板基础样式 */
         .player-list-panel {
             position: absolute; top: 20px; right: 20px; z-index: 1000;
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
             padding: 15px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            width: 220px; max-height: 60vh; overflow: hidden; border: 1px solid rgba(255,255,255,0.5);
+            width: 260px; /* 稍微加宽一点适配房间输入 */
+            max-height: 70vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.5);
             transition: all 0.3s ease;
         }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px; cursor: pointer; }
-        .panel-title { font-size: 13px; font-weight: 700; color: #1a1a1a; margin: 0; }
-        .toggle-icon { font-size: 12px; color: #999; transition: transform 0.3s; }
-        .panel-content { display: block; }
+        /* 手机端面板适配 */
+        @media (max-width: 600px) {
+            .player-list-panel {
+                width: 200px; /* 手机上窄一点 */
+                top: 10px; right: 10px;
+                padding: 10px;
+            }
+            .locate-btn { bottom: 30px; right: 10px; padding: 10px 15px; font-size: 12px; }
+            .follow-btn { bottom: 90px; right: 10px; width: 36px; height: 36px; }
+            .measure-btn { bottom: 135px; right: 10px; width: 36px; height: 36px; }
+            
+            /* 房间设置区域在手机上的优化 */
+            .room-setting-box { padding: 6px !important; }
+            .room-input-row { flex-direction: column; align-items: flex-start !important; gap: 4px !important; }
+            .room-input-row .setting-label { width: 100% !important; margin-bottom: 2px; }
+            .room-input-row input { width: 100% !important; }
+        }
 
-        /* 聊天室面板 */
+        .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px; cursor: pointer; }
+        .panel-title { font-size: 14px; font-weight: 700; color: #1a1a1a; margin: 0; }
+        .toggle-icon { font-size: 12px; color: #999; transition: transform 0.3s; }
+        
         .chat-panel {
             position: absolute; bottom: 30px; left: 20px; z-index: 1000;
             width: 280px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
             border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            display: flex; flex-direction: column; overflow: visible; transition: width 0.3s, transform 0.3s;
+            display: flex; flex-direction: column; transition: width 0.3s, transform 0.3s;
         }
+        @media (max-width: 600px) {
+            .chat-panel { width: 70%; left: 10px; bottom: 80px; }
+        }
+        
         .chat-header { background: #f0f2f5; padding: 10px 12px; font-size: 12px; font-weight: bold; color: #666; display: flex; justify-content: space-between; cursor: pointer; border-radius: 12px 12px 0 0; }
         .chat-panel.collapsed .chat-header { border-radius: 12px; }
         .chat-content-wrapper { display: block; }
@@ -57,26 +106,22 @@
         .chat-input { flex: 1; border: 1px solid #ddd; border-radius: 4px; padding: 6px 8px; font-size: 12px; outline: none; min-width: 0; }
         .chat-send-btn { margin-left: 6px; background: #1890ff; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; white-space: nowrap; }
 
-        /* 设置区域 */
         .user-setting-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
         .setting-label { font-size: 12px; color: #666; width: 30px; flex-shrink: 0; }
-        .avatar-input { width: 40px; text-align: center; border: 1px solid #ddd; border-radius: 8px; padding: 5px; font-size: 18px; background: #f9f9f9; }
+        .avatar-input { width: 40px; text-align: center; border: 1px solid #ddd; border-radius: 8px; padding: 5px; font-size: 16px; background: #f9f9f9; }
         .status-input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 6px; font-size: 12px; background: #f9f9f9; }
         .id-input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 6px; font-size: 12px; background: #f9f9f9; font-weight: bold; color: #333; }
-        
+        .gpx-btn { width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 8px; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px; }
+
         .view-switch { display: flex; gap: 5px; background: #eee; padding: 2px; border-radius: 6px; flex: 1; }
         .view-opt { flex: 1; text-align: center; font-size: 11px; padding: 4px 0; cursor: pointer; border-radius: 4px; color: #666; }
         .view-opt.active { background: white; color: #3388ff; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .gpx-btn { width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 8px; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px; }
 
-        /* 列表项 */
         .player-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; margin-bottom: 6px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-        .player-info { display: flex; flex-direction: column; }
         .player-head { display: flex; align-items: center; gap: 5px; font-weight: 600; font-size: 13px; color: #333; }
         .player-status-text { font-size: 11px; color: #666; margin-top: 2px; }
         .player-dist { font-size: 11px; color: #888; }
         
-        /* 地图元素 */
         .emoji-marker-icon { position: relative; display: flex; justify-content: center; align-items: center; background: white; border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.3); border: 2px solid white; font-size: 24px; transition: all 0.3s ease; }
         .my-icon-style { border-color: #3388ff; z-index: 1000 !important; }
         .other-icon-style { border-color: #ff4d4f; }
@@ -90,44 +135,41 @@
         .msg-bubble { background: rgba(0, 0, 0, 0.75); color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; margin-bottom: 5px; max-width: 80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: fadeUp 0.3s ease-out; margin-left: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .chat-badge { display: none; width: 8px; height: 8px; background: #ff4d4f; border-radius: 50%; margin-right: 5px; }
-        
         .toast-tip { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity 0.5s; z-index: 2000; }
         .leaflet-control-scale { margin-bottom: 5px !important; margin-left: 10px !important; }
-
-        /* 移动端适配 */
-        body.view-mobile .player-list-panel { width: 180px; padding: 10px; top: 10px; right: 10px; }
-        body.view-mobile .panel-title { font-size: 12px; }
-        body.view-mobile .avatar-input { width: 30px; height: 30px; font-size: 16px; padding: 2px; }
-        body.view-mobile .status-input, body.view-mobile .id-input { font-size: 11px; padding: 4px; }
-        body.view-mobile .chat-panel { width: 240px; left: 10px; bottom: 80px; }
-        body.view-mobile .chat-input-area { padding: 6px; }
-        body.view-mobile .locate-btn { bottom: 20px; right: 10px; padding: 10px 15px; font-size: 12px; }
-        body.view-mobile .follow-btn { bottom: 80px; right: 10px; width: 36px; height: 36px; font-size: 16px; }
-        body.view-mobile .measure-btn { bottom: 125px; right: 10px; width: 36px; height: 36px; font-size: 16px; }
-        body.view-mobile .leaflet-control-scale { margin-bottom: 5px !important; margin-left: 5px !important; }
     </style>
 </head>
 <body>
+
+    <div id="login-overlay">
+        <div class="login-box">
+            <div style="font-size: 40px; margin-bottom: 10px;">🔒</div>
+            <div class="login-title">MOUYU 内部系统</div>
+            <input type="password" id="site-password" class="login-input" placeholder="请输入访问密码..." onkeypress="if(event.key==='Enter') checkSitePassword()">
+            <button class="login-btn" onclick="checkSitePassword()">解锁系统</button>
+            <div id="login-error" style="color:red; font-size:12px; margin-top:10px; opacity:0; transition:opacity 0.3s;">密码错误</div>
+        </div>
+    </div>
 
     <div id="toast" class="toast-tip">长按地图插旗 | 点击直尺测量</div>
 
     <div class="player-list-panel" id="player-panel">
         <div class="panel-header" onclick="togglePlayerPanel()">
-            <div class="panel-title">📡 MOUYU的地图</div>
+            <div class="panel-title">📡 MOUYU地图</div>
             <div class="toggle-icon" id="player-toggle-icon">▼</div>
         </div>
         <div class="panel-content" id="player-content">
             
-            <div style="background: #e6f7ff; padding: 8px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #91d5ff;">
-                <div class="user-setting-row">
+            <div class="room-setting-box" style="background: #e6f7ff; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #91d5ff;">
+                <div class="user-setting-row room-input-row">
                     <span class="setting-label" style="font-weight:bold; color:#0050b3;">房间</span>
-                    <input type="text" id="room-input" class="id-input" value="大厅" placeholder="输入房间名" style="background:white;">
+                    <input type="text" id="room-input" class="id-input" value="大厅" placeholder="房间名" style="background:white;">
                 </div>
-                <div class="user-setting-row">
+                <div class="user-setting-row room-input-row">
                     <span class="setting-label" style="font-weight:bold; color:#0050b3;">密码</span>
-                    <input type="text" id="pass-input" class="status-input" placeholder="可选..." style="background:white;">
+                    <input type="text" id="pass-input" class="status-input" placeholder="加密(可选)" style="background:white;">
                 </div>
-                <button class="gpx-btn" onclick="joinRoom()" style="background:#1890ff; margin-top:5px;">🚪 点击进入房间</button>
+                <button class="gpx-btn" onclick="joinRoom()" style="background:#1890ff; margin-top:5px; height: 32px; line-height: 1;">🚪 进入房间</button>
             </div>
             
             <div style="padding-bottom: 10px; border-bottom: 1px dashed #eee; margin-bottom: 10px;">
@@ -189,43 +231,100 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
-        var satellite = L.layerGroup([
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
-        ]);
-        var streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB', maxZoom: 20 });
-        var map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [satellite], zoomControl: false });
-        L.control.zoom({position: 'topleft'}).addTo(map);
-        L.control.layers({ "卫星图": satellite, "街道图": streetMap }).addTo(map);
-        L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
+        // ============================================
+        // 🔐 网站门禁逻辑 (在这里修改密码！)
+        // ============================================
+        var SITE_PASSWORD = "MOUYU"; // <--- 请在这里修改你的网站访问密码！
+        var isSystemUnlocked = false;
 
-        var myUniqueId = localStorage.getItem('my_unique_id');
-        if (!myUniqueId) {
-            myUniqueId = "uid_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-            localStorage.setItem('my_unique_id', myUniqueId);
+        function checkSitePassword() {
+            var input = document.getElementById('site-password').value;
+            if (input === SITE_PASSWORD) {
+                document.getElementById('login-overlay').style.display = 'none';
+                isSystemUnlocked = true;
+                startApp(); // 密码正确才启动地图和MQTT
+            } else {
+                var err = document.getElementById('login-error');
+                err.style.opacity = 1;
+                setTimeout(function() { err.style.opacity = 0; }, 2000);
+            }
         }
-        var myName = localStorage.getItem('my_nickname');
-        if (!myName) { myName = "神秘人" + Math.floor(Math.random() * 100); }
-
-        document.getElementById('my-name-input').value = myName;
-        document.getElementById('my-status-text').innerText = "系统ID: " + myUniqueId.substring(0,8)+"...";
-
+        
+        // ============================================
+        // 🗺️ 地图与系统核心 (被包裹在 startApp 中)
+        // ============================================
+        var map, client, satellite, streetMap, darkMap;
+        var myUniqueId, myName;
         var otherPlayers = {}; var myLatLng = null; var myMarker = null; var myPolyline = null;
         var myCurrentAvatar = "😼"; var myCurrentStatus = ""; var currentFlag = null; 
         var isMeasuring = false; var measurePoints = []; var measureLine = null; var measureTips = [];
         var isFollowing = false; var myHeading = 0; 
-        
-        // ============================================
-        // ✅ 核心逻辑修改：房间 + 密码
-        // ============================================
-        var currentTopic = ""; // 当前订阅的频道
-        var client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        var currentTopic = ""; 
         var debounceTimer = null;
 
+        function startApp() {
+            // 1. 初始化地图图层
+            darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
+            satellite = L.layerGroup([
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
+            ]);
+            streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB', maxZoom: 20 });
+
+            // 2. 创建地图
+            map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [darkMap], zoomControl: false });
+            L.control.zoom({position: 'topleft'}).addTo(map);
+            L.control.layers({ "🌑 赛博模式": darkMap, "🛰️ 卫星图": satellite, "☀️ 街道图": streetMap }).addTo(map);
+            L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
+            
+            // 3. 用户信息
+            myUniqueId = localStorage.getItem('my_unique_id');
+            if (!myUniqueId) {
+                myUniqueId = "uid_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+                localStorage.setItem('my_unique_id', myUniqueId);
+            }
+            myName = localStorage.getItem('my_nickname');
+            if (!myName) { myName = "神秘人" + Math.floor(Math.random() * 100); }
+            document.getElementById('my-name-input').value = myName;
+            document.getElementById('my-status-text').innerText = "系统ID: " + myUniqueId.substring(0,8)+"...";
+            
+            // 4. 连接 MQTT (只有密码正确才会执行这里)
+            client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+            client.on('connect', function () { 
+                console.log('✅ MQTT Connected'); 
+                joinRoom(); 
+            });
+            client.on('message', handleMqttMessage);
+            
+            // 5. 绑定地图事件
+            map.on('click', onMapClick);
+            map.on('dragstart', function() { if(isFollowing) toggleFollow(); });
+            map.on('contextmenu', onMapContextMenu);
+            map.on('locationfound', onLocationFound);
+            map.on('locationerror', function(e) { console.log("定位中..."); });
+
+            // 6. 启动定位
+            locateAndShare(false); 
+            setInterval(() => locateAndShare(false), 3000);
+            
+            // 7. 启动清理定时器
+            setInterval(function() {
+                var now = Date.now(); var listChanged = false;
+                for (var id in otherPlayers) { if (now - otherPlayers[id].lastSeen > 10000) { map.removeLayer(otherPlayers[id].marker); if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); delete otherPlayers[id]; listChanged = true; } }
+                if(listChanged) updatePlayerList();
+            }, 2000);
+
+            // 8. 提示Toast
+            setTimeout(function(){ var t = document.getElementById('toast'); t.style.opacity = 1; setTimeout(function(){ t.style.opacity = 0; }, 3000); }, 1000);
+            
+            applyViewMode();
+        }
+
+        // ========================
+        // 🏠 房间逻辑
+        // ========================
         function getTopic(room, pass) {
             if (!room) room = "大厅";
-            // 原理：把密码拼接到 Topic 中，密码对不上就进不去同一个频道
             var safeRoom = encodeURIComponent(room);
             var safePass = pass ? "_" + encodeURIComponent(pass) : "";
             return 'mouyu/live/' + safeRoom + safePass;
@@ -236,44 +335,63 @@
             var pass = document.getElementById('pass-input').value.trim();
             var newTopic = getTopic(room, pass);
 
-            if (currentTopic === newTopic) {
-                alert("你已经在房间 [" + room + "] 里了");
-                return;
-            }
-
-            // 1. 退出旧房间
+            if (currentTopic === newTopic) { alert("你已经在房间 [" + room + "] 里了"); return; }
             if (currentTopic && client.connected) {
                 client.unsubscribe(currentTopic);
-                // 清空其他人
-                for(var id in otherPlayers) {
-                    map.removeLayer(otherPlayers[id].marker);
-                    if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline);
-                }
-                otherPlayers = {};
-                updatePlayerList();
+                for(var id in otherPlayers) { map.removeLayer(otherPlayers[id].marker); if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); }
+                otherPlayers = {}; updatePlayerList();
                 if(currentFlag) { map.removeLayer(currentFlag); currentFlag = null; }
                 document.getElementById('chat-messages').innerHTML = '<div class="chat-msg-row" style="color:#999; font-style:italic;">已切换房间...</div>';
             }
-
-            // 2. 加入新房间
             currentTopic = newTopic;
             if (client.connected) {
                 client.subscribe(currentTopic);
                 client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: 'SYS', senderName: '系统', text: `${myName} 进房` }));
                 triggerManualLocate();
             }
-            
-            alert("✅ 已进入: " + room + (pass ? " (🔒加密)" : " (📢公开)"));
+            alert("✅ 已进入: " + room);
             document.querySelector('.panel-title').innerText = "📡 房间: " + room;
         }
 
-        setTimeout(function(){ var t = document.getElementById('toast'); t.style.opacity = 1; setTimeout(function(){ t.style.opacity = 0; }, 3000); }, 2000);
-        
-        client.on('connect', function () { 
-            console.log('✅ MQTT Connected'); 
-            joinRoom(); // 连接成功后自动进房
-        });
+        // ========================
+        // 📡 MQTT 消息处理
+        // ========================
+        function handleMqttMessage(topic, message) {
+            try {
+                var data = JSON.parse(message.toString());
+                if (data.type === 'chat') { if (data.senderId !== myUniqueId) appendChatMsg(data.senderName, data.text, false); return; }
+                if (data.type === 'flag_update') {
+                    if (data.action === 'add') {
+                        if (currentFlag) map.removeLayer(currentFlag);
+                        var flagIcon = L.divIcon({ className: 'flag-icon', html: '🏁', iconSize: [30, 40], iconAnchor: [15, 40] });
+                        currentFlag = L.marker([data.lat, data.lng], { icon: flagIcon }).addTo(map).bindPopup(`<b>🏁 集合</b><br>发起: ${data.senderName}<br><button onclick="removeFlag()">拔掉</button>`).openPopup();
+                    } else if (data.action === 'remove') { if (currentFlag) { map.removeLayer(currentFlag); currentFlag = null; } }
+                    return;
+                }
+                if (data.id === myUniqueId) return;
+                
+                var now = Date.now(); var pAvatar = data.avatar || "📍"; var pStatus = data.status || ""; var pName = data.name || "未知";
+                if (!otherPlayers[data.id]) {
+                    var icon = L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
+                    var newMarker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
+                    if(pStatus) newMarker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' });
+                    newMarker.bindPopup("🚩 " + pName);
+                    var newPolyline = L.polyline([], { color: '#00ff00', weight: 3, opacity: 0.8, dashArray: '5, 10' }).addTo(map); newPolyline.addLatLng([data.lat, data.lng]);
+                    otherPlayers[data.id] = { marker: newMarker, polyline: newPolyline, lastSeen: now, lat: data.lat, lng: data.lng, avatar: pAvatar, status: pStatus, name: pName };
+                } else {
+                    var p = otherPlayers[data.id]; p.marker.setLatLng([data.lat, data.lng]); p.polyline.addLatLng([data.lat, data.lng]);
+                    p.lastSeen = now; p.lat = data.lat; p.lng = data.lng;
+                    if (p.name !== pName) { p.marker.bindPopup("🚩 " + pName); p.name = pName; }
+                    if (p.avatar !== pAvatar) { p.marker.setIcon(L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] })); p.avatar = pAvatar; }
+                    if (p.status !== pStatus) { p.status = pStatus; pStatus ? p.marker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }) : p.marker.unbindTooltip(); }
+                }
+                updatePlayerList();
+            } catch (e) {}
+        }
 
+        // ========================
+        // 🛠️ 辅助功能
+        // ========================
         var currentViewMode = 'auto';
         function setViewMode(mode, btnElement) {
             currentViewMode = mode; var btns = document.querySelectorAll('.view-opt'); btns.forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); applyViewMode();
@@ -284,7 +402,6 @@
             if (isMobile) { body.classList.add('view-mobile'); if (!body.dataset.initMobile) { toggleChat(true); togglePlayerPanel(true); body.dataset.initMobile = "true"; } } else { body.classList.remove('view-mobile'); }
         }
         window.addEventListener('resize', function() { if (currentViewMode === 'auto') applyViewMode(); });
-        applyViewMode();
 
         function togglePlayerPanel(forceCollapse) {
             var content = document.getElementById('player-content'); var icon = document.getElementById('player-toggle-icon'); var isHidden = content.style.display === 'none';
@@ -307,39 +424,30 @@
             if(isFollowing) { btn.classList.add('active'); if(myLatLng) map.flyTo(myLatLng, 18); document.getElementById('toast').innerText = "视角跟随已开启"; document.getElementById('toast').style.opacity = 1; setTimeout(()=>document.getElementById('toast').style.opacity=0, 2000); } 
             else { btn.classList.remove('active'); document.getElementById('toast').innerText = "视角跟随已关闭"; document.getElementById('toast').style.opacity = 1; setTimeout(()=>document.getElementById('toast').style.opacity=0, 2000); }
         }
-        map.on('dragstart', function() { if(isFollowing) toggleFollow(); });
 
-        if (window.DeviceOrientationEvent) {
-            window.addEventListener('deviceorientation', function(event) {
-                if (event.alpha !== null) {
-                    var heading = event.webkitCompassHeading || (360 - event.alpha);
-                    myHeading = heading; updateHeadingVisuals();
-                }
-            }, true);
-        }
-        function updateHeadingVisuals() {
-            var arrow = document.querySelector('.my-icon-style .heading-arrow');
-            if(arrow) { arrow.style.display = 'block'; arrow.style.transform = `translateX(-50%) rotate(${myHeading}deg)`; }
-        }
-
-        map.on('click', function(e) {
+        function onMapClick(e) {
             if (isMeasuring) {
                 measurePoints.push(e.latlng);
-                var tip = L.circleMarker(e.latlng, { color: 'black', radius: 4 }).addTo(map); measureTips.push(tip);
+                var tip = L.circleMarker(e.latlng, { color: '#00f3ff', radius: 4 }).addTo(map); measureTips.push(tip);
                 if (measurePoints.length === 2) {
                     var p1 = measurePoints[0]; var p2 = measurePoints[1];
                     var dist = map.distance(p1, p2); var distStr = dist > 1000 ? (dist/1000).toFixed(2) + " km" : Math.round(dist) + " m";
-                    measureLine = L.polyline([p1, p2], { color: 'black', weight: 2, dashArray: '5, 5' }).addTo(map);
+                    measureLine = L.polyline([p1, p2], { color: '#00f3ff', weight: 2, dashArray: '5, 5' }).addTo(map);
                     measureLine.bindPopup(`<b>📏 ${distStr}</b>`).openPopup();
                     measurePoints = []; setTimeout(() => { measureTips.forEach(t => map.removeLayer(t)); measureTips = []; }, 500);
                 } else if (measurePoints.length > 2) { clearMeasure(); }
             }
-        });
+        }
+        function onMapContextMenu(e) {
+            if(isMeasuring) return;
+            if(confirm("🚩 插旗集合？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', senderName: myName, action: 'add', lat: e.latlng.lat, lng: e.latlng.lng }));
+        }
+        window.removeFlag = function() { if(confirm("取消集合点？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', action: 'remove' })); };
 
+        // 聊天
         function handleChatKey(e) { if(e.key === 'Enter') sendChat(); }
         function sendChat() {
             var input = document.getElementById('chat-input'); var text = input.value; if(!text.trim()) return;
-            // ✅ 使用 currentTopic
             client.publish(currentTopic, JSON.stringify({ type: 'chat', senderId: myUniqueId, senderName: myName, text: text }));
             appendChatMsg(myName, text, true); input.value = "";
         }
@@ -355,51 +463,8 @@
             bubble.innerText = `${name}: ${text}`; container.appendChild(bubble); setTimeout(() => { bubble.style.opacity = '0'; setTimeout(() => bubble.remove(), 300); }, 3000);
         }
 
-        map.on('contextmenu', function(e) {
-            if(isMeasuring) return;
-            // ✅ 使用 currentTopic
-            if(confirm("🚩 插旗集合？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', senderName: myName, action: 'add', lat: e.latlng.lat, lng: e.latlng.lng }));
-        });
-        window.removeFlag = function() { 
-            // ✅ 使用 currentTopic
-            if(confirm("取消集合点？")) client.publish(currentTopic, JSON.stringify({ type: 'flag_update', action: 'remove' })); 
-        };
-
-        client.on('message', function (topic, message) {
-            try {
-                var data = JSON.parse(message.toString());
-                if (data.type === 'chat') { if (data.senderId !== myUniqueId) appendChatMsg(data.senderName, data.text, false); return; }
-                if (data.type === 'flag_update') {
-                    if (data.action === 'add') {
-                        if (currentFlag) map.removeLayer(currentFlag);
-                        var flagIcon = L.divIcon({ className: 'flag-icon', html: '🏁', iconSize: [30, 40], iconAnchor: [15, 40] });
-                        currentFlag = L.marker([data.lat, data.lng], { icon: flagIcon }).addTo(map).bindPopup(`<b>🏁 集合</b><br>发起: ${data.senderName}<br><button onclick="removeFlag()">拔掉</button>`).openPopup();
-                    } else if (data.action === 'remove') { if (currentFlag) { map.removeLayer(currentFlag); currentFlag = null; } }
-                    return;
-                }
-                if (data.id === myUniqueId) return;
-                
-                var now = Date.now(); var pAvatar = data.avatar || "📍"; var pStatus = data.status || ""; var pName = data.name || "未知";
-                if (!otherPlayers[data.id]) {
-                    var icon = L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
-                    var newMarker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
-                    if(pStatus) newMarker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' });
-                    newMarker.bindPopup("🚩 " + pName);
-                    var newPolyline = L.polyline([], { color: '#ff4d4f', weight: 3, opacity: 0.7, dashArray: '5, 10' }).addTo(map); newPolyline.addLatLng([data.lat, data.lng]);
-                    otherPlayers[data.id] = { marker: newMarker, polyline: newPolyline, lastSeen: now, lat: data.lat, lng: data.lng, avatar: pAvatar, status: pStatus, name: pName };
-                } else {
-                    var p = otherPlayers[data.id]; p.marker.setLatLng([data.lat, data.lng]); p.polyline.addLatLng([data.lat, data.lng]);
-                    p.lastSeen = now; p.lat = data.lat; p.lng = data.lng;
-                    if (p.name !== pName) { p.marker.bindPopup("🚩 " + pName); p.name = pName; }
-                    if (p.avatar !== pAvatar) { p.marker.setIcon(L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] })); p.avatar = pAvatar; }
-                    if (p.status !== pStatus) { p.status = pStatus; pStatus ? p.marker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }) : p.marker.unbindTooltip(); }
-                }
-                updatePlayerList();
-            } catch (e) {}
-        });
-
+        // 定位与更新
         function triggerQuietUpdate() { clearTimeout(debounceTimer); debounceTimer = setTimeout(function() { locateAndShare(false); }, 800); }
-
         document.getElementById('my-name-input').addEventListener('input', function(e) { myName = e.target.value.trim(); localStorage.setItem('my_nickname', myName); triggerQuietUpdate(); });
         document.getElementById('my-avatar-input').addEventListener('input', function(e) { myCurrentAvatar = e.target.value; updateMyMarkerVisuals(); triggerQuietUpdate(); });
         document.getElementById('my-status-input').addEventListener('input', function(e) { myCurrentStatus = e.target.value; updateMyMarkerVisuals(); triggerQuietUpdate(); });
@@ -411,7 +476,6 @@
             if (myCurrentStatus) myMarker.bindTooltip(myCurrentStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }); else myMarker.unbindTooltip();
             updateHeadingVisuals();
         }
-        
         function updatePlayerList() {
             var container = document.getElementById('player-list-container'); container.innerHTML = ""; var hasPlayers = false;
             for (var id in otherPlayers) {
@@ -425,34 +489,34 @@
             }
             if (!hasPlayers) container.innerHTML = '<div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">暂无其他人</div>';
         }
-        setInterval(function() {
-            var now = Date.now(); var listChanged = false;
-            for (var id in otherPlayers) { if (now - otherPlayers[id].lastSeen > 10000) { map.removeLayer(otherPlayers[id].marker); if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); delete otherPlayers[id]; listChanged = true; } }
-            if(listChanged) updatePlayerList();
-        }, 2000);
 
         function locateAndShare(showAlert = false) { map.locate({ setView: false, maxZoom: 17, timeout: 30000, enableHighAccuracy: true, maximumAge: 0 }); if(showAlert) alert("正在刷新位置..."); }
         function triggerManualLocate() { locateAndShare(true); }
-
         var isFirstLocate = true;
-        map.on('locationfound', function(e) {
+        function onLocationFound(e) {
             myLatLng = e.latlng; 
-            
             if (isFollowing) map.panTo(myLatLng);
-
-            if (!myPolyline) myPolyline = L.polyline([], { color: '#3388ff', weight: 4, opacity: 0.8 }).addTo(map); myPolyline.addLatLng(e.latlng);
+            if (!myPolyline) myPolyline = L.polyline([], { color: '#00f3ff', weight: 4, opacity: 0.8 }).addTo(map); myPolyline.addLatLng(e.latlng);
             if (!myMarker) { 
                 var arrowHtml = `<div class="heading-arrow"></div>` + myCurrentAvatar;
                 myMarker = L.marker(e.latlng, { icon: L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }) }).addTo(map).bindPopup("<b>我</b>").openPopup(); if(myCurrentStatus) updateMyMarkerVisuals(); 
             } else myMarker.setLatLng(e.latlng);
-            
             if (isFirstLocate) { map.setView(e.latlng, 17); isFirstLocate = false; }
-            // ✅ 使用 currentTopic
             client.publish(currentTopic, JSON.stringify({ type: 'player_update', id: myUniqueId, name: myName, lat: e.latlng.lat, lng: e.latlng.lng, avatar: myCurrentAvatar, status: myCurrentStatus }));
-        });
-        map.on('locationerror', function(e) { console.log("定位中..."); });
+        }
 
-        locateAndShare(false); setInterval(() => locateAndShare(false), 3000);
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', function(event) {
+                if (event.alpha !== null) {
+                    var heading = event.webkitCompassHeading || (360 - event.alpha);
+                    myHeading = heading; updateHeadingVisuals();
+                }
+            }, true);
+        }
+        function updateHeadingVisuals() {
+            var arrow = document.querySelector('.my-icon-style .heading-arrow');
+            if(arrow) { arrow.style.display = 'block'; arrow.style.transform = `translateX(-50%) rotate(${myHeading}deg)`; }
+        }
     </script>
 </body>
 </html>
