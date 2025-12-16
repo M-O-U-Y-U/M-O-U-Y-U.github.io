@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU 共享地图 (V4.2 修复版)</title>
+    <title>MOUYU 共享地图 (V5.0 去弹窗版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -15,7 +15,7 @@
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
         #map { height: 100vh; width: 100%; }
         
-        /* 遮罩与弹窗 */
+        /* 遮罩与弹窗通用 */
         .overlay-mask {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px);
@@ -30,7 +30,7 @@
         }
         @keyframes popUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .dialog-title { font-size: 22px; font-weight: bold; margin-bottom: 10px; color: #333; }
-        .dialog-subtitle { font-size: 13px; color: #666; margin-bottom: 15px; line-height: 1.5; }
+        .dialog-subtitle { font-size: 14px; color: #666; margin-bottom: 20px; line-height: 1.5; }
         
         .login-input { width: 100%; padding: 12px; font-size: 16px; border: 2px solid #eee; border-radius: 8px; margin-bottom: 15px; text-align: center; outline: none; transition: 0.3s; }
         .login-input:focus { border-color: #1890ff; }
@@ -45,6 +45,10 @@
         .btn-gray { background: #f0f0f0; color: #666; }
         .btn-black { background: #333; color: #fff; }
         .btn-orange { background: #fa8c16; color: #fff; }
+
+        /* 通用弹窗按钮组 */
+        .dialog-btns { display: flex; gap: 10px; width: 100%; }
+        .dialog-btns button { flex: 1; }
 
         /* 地图按钮 */
         .map-btn {
@@ -151,7 +155,6 @@
         /* ========================
            🧟‍♂️ 生化模式特有样式
            ======================== */
-        /* 修复：默认不显示，进入模式才 flex */
         .bio-status-panel {
             position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 30px;
@@ -199,6 +202,9 @@
             display:none; border-top:1px dashed #ccc; padding-top:10px; margin-top:10px;
             background: #fffbe6; padding: 10px; border-radius: 8px;
         }
+        
+        .setting-field { display:flex; align-items:center; justify-content:center; gap:5px; margin-bottom:5px; font-size:13px; }
+        .setting-input { width:60px; text-align:center; padding:4px; border:1px solid #ddd; border-radius:4px; }
     </style>
 </head>
 <body>
@@ -214,22 +220,15 @@
         </div>
     </div>
 
-    <div id="sos-confirm-overlay" class="overlay-mask" style="display: none;">
-        <div class="dialog-box" style="border-top: 5px solid #ff4d4f;">
-            <div style="font-size: 40px; margin-bottom: 10px;">⚠️</div>
-            <div class="dialog-title" style="color:#ff4d4f">确定发送 SOS 吗？</div>
-            <div style="font-size: 13px; color: #666; margin-bottom: 20px; text-align: left; background: #fff1f0; padding: 10px; border-radius: 6px;">
-                1. 所有在线队友将<b>立刻</b>看到你的位置。<br>
-                2. 屏幕将显示红色警报。<br>
-                3. 请仅在<b>紧急情况</b>下使用。
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <button class="action-btn btn-gray" onclick="cancelSOS()">取消</button>
-                <button class="action-btn btn-red" onclick="confirmSOS()">立即发送</button>
-            </div>
+    <div id="generic-modal" class="overlay-mask" style="display: none; z-index: 11000;">
+        <div class="dialog-box">
+            <div class="dialog-title" id="gen-title">提示</div>
+            <div class="dialog-subtitle" id="gen-desc" style="color:#333; font-size:15px;"></div>
+            <div class="dialog-btns" id="gen-btns">
+                </div>
         </div>
     </div>
-    
+
     <div id="mode-select-overlay" class="overlay-mask" style="display: none;">
         <div class="dialog-box">
             <div style="font-size: 40px; margin-bottom: 10px;">🛠️</div>
@@ -262,12 +261,18 @@
             </div>
 
             <div id="admin-controls" class="admin-controls-box">
-                <div style="font-size:12px; color:#666; margin-bottom:5px;">⚠️ 必须全员同意才能开始</div>
-                <div style="display:flex; align-items:center; justify-content:center; gap:5px; margin-bottom:10px;">
+                <div style="font-size:12px; color:#666; margin-bottom:5px; font-weight:bold;">📋 游戏设置 (仅房主)</div>
+                <div class="setting-field">
                     <span>⏱️ 生存时间:</span>
-                    <input type="number" id="custom-game-time" value="5" min="1" max="60" style="width:50px; text-align:center; padding:4px; border:1px solid #ddd; border-radius:4px;">
+                    <input type="number" id="custom-game-time" value="5" min="1" max="60" class="setting-input">
                     <span>分钟</span>
                 </div>
+                <div class="setting-field">
+                    <span>🦠 初始母体:</span>
+                    <input type="number" id="custom-zombie-num" value="1" min="1" max="10" class="setting-input">
+                    <span>人</span>
+                </div>
+                
                 <button id="admin-start-btn" class="action-btn btn-red" disabled onclick="finalStartGame()">等待全员投票...</button>
             </div>
         </div>
@@ -286,7 +291,7 @@
     
     <div id="infection-effect" class="infection-overlay"></div>
 
-    <div id="bio-status-bar" class="bio-status-panel">
+    <div id="bio-status-bar" class="bio-status-panel" style="display: flex;">
         <div class="bio-timer" id="game-timer">00:00</div>
         <div>🛡️ <span id="survivor-count" class="bio-count-val">0</span></div>
         <div>🧟‍♂️ <span id="zombie-count" class="bio-zombie-val">0</span></div>
@@ -414,6 +419,43 @@
         }
         
         // ============================================
+        // 🛠️ 0. 通用弹窗组件 (替代 Alert/Confirm)
+        // ============================================
+        function showModal(title, text, confirmText, cancelText, onConfirm) {
+            var modal = document.getElementById('generic-modal');
+            document.getElementById('gen-title').innerText = title;
+            document.getElementById('gen-desc').innerText = text;
+            
+            var btns = document.getElementById('gen-btns');
+            btns.innerHTML = "";
+            
+            if (cancelText) {
+                var btnCancel = document.createElement('button');
+                btnCancel.className = "action-btn btn-gray";
+                btnCancel.innerText = cancelText;
+                btnCancel.onclick = function() { modal.style.display = 'none'; };
+                btns.appendChild(btnCancel);
+            }
+            
+            if (confirmText) {
+                var btnConfirm = document.createElement('button');
+                btnConfirm.className = "action-btn btn-blue";
+                btnConfirm.innerText = confirmText;
+                btnConfirm.onclick = function() { 
+                    modal.style.display = 'none';
+                    if (onConfirm) onConfirm();
+                };
+                btns.appendChild(btnConfirm);
+            }
+            
+            modal.style.display = 'flex';
+        }
+
+        // 快捷调用
+        function alertBox(text) { showModal("提示", text, "确定", null, null); }
+        function confirmBox(text, callback) { showModal("确认", text, "确定", "取消", callback); }
+
+        // ============================================
         // 🔐 2. 加密通信 (AES)
         // ============================================
         function getRoomPassword() { return document.getElementById('pass-input').value.trim(); }
@@ -474,12 +516,11 @@
         var isGameRunning = false; 
         var isZombie = false; 
         var zombieList = new Set();
-        var voteSet = new Set(); // 记录投票人ID
-        var gameDurationSeconds = 300; // 默认5分钟
+        var voteSet = new Set(); 
+        var gameDurationSeconds = 300; 
         var localTimerInterval = null;
 
         function startApp() {
-            // 图层初始化
             darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
             osmMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
             satellite = L.layerGroup([
@@ -493,25 +534,21 @@
             L.control.layers({ "🛰️ 卫星图": satellite, "🗺️ OSM地图": osmMap, "🌑 夜间模式": darkMap, "☀️ 简洁图": streetMap }).addTo(map);
             L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
             
-            // 修复：生成纯随机短ID，避免"uid17"重复问题
+            // 随机 ID
             myUniqueId = SafeStorage.getItem('my_unique_id');
             if (!myUniqueId || myUniqueId.startsWith("uid_")) {
-                // 生成一个6位随机大写字母+数字的组合
                 myUniqueId = Math.random().toString(36).substr(2, 6).toUpperCase();
                 SafeStorage.setItem('my_unique_id', myUniqueId);
             }
-            
             myName = SafeStorage.getItem('my_nickname');
             if (!myName) { myName = "队友" + Math.floor(Math.random() * 100); }
             document.getElementById('my-name-input').value = myName;
             document.getElementById('my-status-text').innerText = "ID: " + myUniqueId;
             
-            // MQTT 连接
             client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
             client.on('connect', function () { 
                 console.log('✅ MQTT Connected'); 
                 updateNetStatus(true);
-                // 不自动进房，等待手动操作
             });
             client.on('offline', function() { updateNetStatus(false); });
             client.on('reconnect', function() { updateNetStatus(true); });
@@ -525,7 +562,6 @@
             locateAndShare(false); 
             setInterval(() => locateAndShare(false), 2000); 
             
-            // 清理掉线玩家
             setInterval(function() {
                 var now = Date.now(); var listChanged = false;
                 for (var id in otherPlayers) { 
@@ -549,7 +585,6 @@
             var dot = document.getElementById('net-status-dot');
             if(isOnline) {
                 dot.className = "net-status-dot status-online";
-                // 修复：重连后把文字恢复
                 document.getElementById('my-status-text').innerText = "ID: " + myUniqueId;
             } else {
                 dot.className = "net-status-dot status-offline";
@@ -559,27 +594,21 @@
 
         function getTopic(room) { return 'mouyu/live/' + encodeURIComponent(room || "大厅"); }
 
-        // 统一进房入口
-        function preJoinCheck() {
-            joinRoom(false); // 普通加入，不强制模式
-        }
-        function openCreateModal() {
-            document.getElementById('mode-select-overlay').style.display = 'flex';
-        }
+        function preJoinCheck() { joinRoom(false); }
+        function openCreateModal() { document.getElementById('mode-select-overlay').style.display = 'flex'; }
+        
         function createRoom(mode) {
             document.getElementById('mode-select-overlay').style.display = 'none';
-            // 创建时，如果是Bio模式，强制要求密码
             if (mode === 'bio') {
                 var pass = getRoomPassword();
                 if (!pass) {
-                    alert("⚠️ 生化模式必须设置房间密码，以防止路人误入！");
+                    alertBox("⚠️ 生化模式必须设置房间密码，以防止路人误入！");
                     return;
                 }
             }
             joinRoom(true, mode);
         }
 
-        // joinRoom: isCreator 表示是否是创建者, initialMode 是创建时指定的模式
         function joinRoom(isCreator = false, initialMode = 'normal') {
             var room = document.getElementById('room-input').value.trim();
             var newTopic = getTopic(room);
@@ -602,9 +631,7 @@
                 client.subscribe(currentTopic);
                 publishData({ type: 'sys_hello', senderId: myUniqueId, senderName: myName });
                 
-                // 如果是创建者，直接广播模式
                 if (isCreator && initialMode === 'bio') {
-                    // 稍微延迟一下，确保自己订阅成功
                     setTimeout(function() {
                         publishData({ type: 'sys_mode_switch', mode: 'bio' });
                     }, 500);
@@ -612,7 +639,7 @@
                 triggerManualLocate();
             }
             
-            alert("✅ 进入: " + room + "\n🔐 加密: " + (getRoomPassword() ? "开启" : "关闭"));
+            alertBox("✅ 已进入: " + room + "\n🔐 加密: " + (getRoomPassword() ? "开启" : "关闭"));
             document.querySelector('.panel-title').innerText = "📡 " + room;
         }
 
@@ -655,9 +682,9 @@
         }
 
         function forceEndGame() {
-            if(confirm("确定强制结束本轮游戏吗？\n所有人的状态将重置。")) {
+            confirmBox("确定强制结束本轮游戏吗？\n所有人的状态将重置。", function() {
                 publishData({ type: 'sys_game_stop' });
-            }
+            });
         }
 
         // ==========================
@@ -675,34 +702,40 @@
             showToast("🚨 SOS 信号已发送！");
         }
 
-        // 1. 发起投票
         function initiateVote() {
             if(!isBioMode) return;
             publishData({ type: 'vote_init', initiator: myName });
         }
         
-        // 2. 投票动作
         function castVote() {
             publishData({ type: 'vote_cast', id: myUniqueId });
             document.getElementById('btn-vote-yes').disabled = true;
             document.getElementById('btn-vote-yes').innerText = "已准备";
         }
         
-        // 3. 最终开始
         function finalStartGame() {
             document.getElementById('bio-vote-overlay').style.display = 'none';
-            // 获取自定义时间
             var mins = document.getElementById('custom-game-time').value;
+            var numZombies = document.getElementById('custom-zombie-num').value;
+            
             var duration = (parseInt(mins) || 5) * 60;
+            var zCount = parseInt(numZombies) || 1;
             
             publishData({ type: 'game_countdown', count: 10 });
             
             setTimeout(function() {
                 var candidates = Object.keys(otherPlayers);
                 candidates.push(myUniqueId);
-                var luckyIndex = Math.floor(Math.random() * candidates.length);
-                var targetId = candidates[luckyIndex];
-                publishData({ type: 'game_infect_zero', targetId: targetId });
+                
+                // 随机抽取 zCount 个母体
+                var targetIds = [];
+                for(var i=0; i<zCount && candidates.length > 0; i++) {
+                    var idx = Math.floor(Math.random() * candidates.length);
+                    targetIds.push(candidates[idx]);
+                    candidates.splice(idx, 1); // 避免重复
+                }
+                
+                publishData({ type: 'game_infect_batch', targets: targetIds });
                 publishData({ type: 'game_start_timer', timestamp: Date.now(), duration: duration });
             }, 10000);
         }
@@ -714,7 +747,7 @@
             
             document.getElementById('infection-effect').style.display = 'block';
             if (window.navigator && window.navigator.vibrate) { window.navigator.vibrate([200, 100, 200, 100, 500]); }
-            alert("🧟‍♂️ 你已被感染！去抓捕幸存者！");
+            alertBox("🧟‍♂️ 你已被感染！去抓捕幸存者！");
             
             myCurrentAvatar = "🧟‍♂️";
             myCurrentStatus = "已感染";
@@ -743,9 +776,7 @@
         }
         
         function showWinModal(title, desc, color) {
-            // 游戏结束，停止红屏特效
             document.getElementById('infection-effect').style.display = 'none';
-            
             document.getElementById('win-title').innerText = title;
             document.getElementById('win-title').style.color = color;
             document.getElementById('win-desc').innerText = desc;
@@ -806,11 +837,9 @@
                 }
                 if (data.type === 'vote_cast') {
                     voteSet.add(data.id);
-                    // 实时计算人数
                     var totalPlayers = Object.keys(otherPlayers).length + 1;
                     document.getElementById('vote-count').innerText = voteSet.size + " / " + totalPlayers;
                     
-                    // 房主视角更新按钮
                     var btn = document.getElementById('admin-start-btn');
                     if (voteSet.size >= totalPlayers) {
                         btn.disabled = false;
@@ -822,12 +851,10 @@
                     return;
                 }
 
-                // --- 🎮 生化模式游戏消息 ---
+                // --- 🎮 生化模式 ---
                 if (isBioMode) {
                     if (data.type === 'game_countdown') {
-                        // 修复：开始倒计时，强制关闭所有人的投票弹窗
                         document.getElementById('bio-vote-overlay').style.display = 'none';
-
                         var count = data.count;
                         var overlay = document.getElementById('countdown-overlay');
                         var numEl = document.getElementById('countdown-num');
@@ -854,7 +881,7 @@
                     if (data.type === 'game_start_timer') {
                         if(localTimerInterval) clearInterval(localTimerInterval);
                         var serverStart = data.timestamp;
-                        var duration = data.duration || 300; // 默认300s
+                        var duration = data.duration || 300; 
                         
                         localTimerInterval = setInterval(function() {
                             var elapsed = Math.floor((Date.now() - serverStart) / 1000);
@@ -872,19 +899,31 @@
                         }, 1000);
                     }
 
-                    if (data.type === 'game_infect_zero' || data.type === 'player_infected') {
-                        var victimId = data.targetId || data.id;
-                        zombieList.add(victimId);
-                        
-                        if (victimId === myUniqueId) {
-                            becomeZombie();
-                        } else {
-                            if (otherPlayers[victimId]) {
-                                otherPlayers[victimId].avatar = "🧟‍♂️";
-                                otherPlayers[victimId].marker.setIcon(L.divIcon({ className: 'emoji-marker-icon zombie-icon-style', html: "🧟‍♂️", iconSize: [40, 40], iconAnchor: [20, 20] }));
-                                otherPlayers[victimId].polyline.setStyle({ color: '#ff0000' });
-                                showToast("⚠️ " + otherPlayers[victimId].name + " 变异了！");
+                    // 批量感染逻辑
+                    if (data.type === 'game_infect_batch') {
+                        var targets = data.targets || [];
+                        targets.forEach(function(tid) {
+                            zombieList.add(tid);
+                            if (tid === myUniqueId) becomeZombie();
+                            else if (otherPlayers[tid]) {
+                                otherPlayers[tid].avatar = "🧟‍♂️";
+                                otherPlayers[tid].marker.setIcon(L.divIcon({ className: 'emoji-marker-icon zombie-icon-style', html: "🧟‍♂️", iconSize: [40, 40], iconAnchor: [20, 20] }));
+                                otherPlayers[tid].polyline.setStyle({ color: '#ff0000' });
                             }
+                        });
+                        showToast("⚠️ 母体已出现，快跑！");
+                        updateBioStats();
+                        checkWinCondition();
+                        return;
+                    }
+
+                    if (data.type === 'player_infected') {
+                        zombieList.add(data.id);
+                        if (data.id !== myUniqueId && otherPlayers[data.id]) {
+                            otherPlayers[data.id].avatar = "🧟‍♂️";
+                            otherPlayers[data.id].marker.setIcon(L.divIcon({ className: 'emoji-marker-icon zombie-icon-style', html: "🧟‍♂️", iconSize: [40, 40], iconAnchor: [20, 20] }));
+                            otherPlayers[data.id].polyline.setStyle({ color: '#ff0000' });
+                            showToast("⚠️ " + otherPlayers[data.id].name + " 变异了！");
                         }
                         updateBioStats();
                         checkWinCondition();
@@ -1051,9 +1090,15 @@
         }
         function onMapContextMenu(e) {
             if(isMeasuring) return;
-            if(confirm("🚩 插旗集合？")) publishData({ type: 'flag_update', senderName: myName, action: 'add', lat: e.latlng.lat, lng: e.latlng.lng });
+            confirmBox("🚩 插旗集合？", function() {
+                publishData({ type: 'flag_update', senderName: myName, action: 'add', lat: e.latlng.lat, lng: e.latlng.lng });
+            });
         }
-        window.removeFlag = function() { if(confirm("取消集合点？")) publishData({ type: 'flag_update', action: 'remove' }); };
+        window.removeFlag = function() { 
+            confirmBox("取消集合点？", function() {
+                publishData({ type: 'flag_update', action: 'remove' });
+            });
+        };
 
         function handleChatKey(e) { if(e.key === 'Enter') sendChat(); }
         function sendChat() {
@@ -1080,7 +1125,7 @@
         window.copyMyCoord = function() {
             if(!myLatLng) return;
             var text = myLatLng.lat.toFixed(6) + "," + myLatLng.lng.toFixed(6);
-            navigator.clipboard.writeText(text).then(() => { alert("坐标已复制: " + text); }).catch(() => alert("复制失败"));
+            navigator.clipboard.writeText(text).then(() => { alertBox("坐标已复制: " + text); }).catch(() => alertBox("复制失败"));
         };
 
         function triggerQuietUpdate() { clearTimeout(debounceTimer); debounceTimer = setTimeout(function() { locateAndShare(false); }, 800); }
