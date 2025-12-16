@@ -44,10 +44,9 @@
         .game-btn { position: absolute; bottom: 200px; right: 20px; z-index: 999; width: 50px; height: 50px; border-radius: 50%; font-size: 24px; background: #722ed1; color: white; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
         .game-btn:active { transform: scale(0.9); }
         
-        /* 帮助按钮 */
         .help-btn { position: absolute; bottom: 260px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; background: white; color: #333; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer; font-weight: bold; }
 
-        /* 游戏选择面板 & 帮助面板 (通用样式) */
+        /* 面板通用样式 */
         .modal-panel {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 320px; background: white; border-radius: 16px; padding: 20px;
@@ -57,7 +56,6 @@
         .modal-panel h3 { margin: 0 0 15px 0; text-align: center; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .close-panel-btn { margin-top: 15px; width: 100%; padding: 10px; background: #eee; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
         
-        /* 游戏选项 */
         .game-option {
             padding: 12px; border: 2px solid #eee; border-radius: 10px; margin-bottom: 10px;
             cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s;
@@ -66,7 +64,6 @@
         .game-option.active { border-color: #722ed1; background: #f9f0ff; color: #722ed1; font-weight: bold; }
         .game-icon { font-size: 20px; }
 
-        /* 帮助内容 */
         .help-content p { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 8px; }
         .help-tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; margin-right: 5px; }
         .tag-default { background: #1890ff; }
@@ -124,6 +121,7 @@
 
         .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px; cursor: pointer; }
         .panel-title { font-size: 14px; font-weight: 700; color: #1a1a1a; margin: 0; }
+        .toggle-icon { font-size: 12px; color: #999; transition: transform 0.3s; }
         
         .chat-panel {
             position: absolute; bottom: 30px; left: 20px; z-index: 1000;
@@ -158,7 +156,6 @@
         .emoji-marker-icon { position: relative; display: flex; justify-content: center; align-items: center; background: white; border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.3); border: 2px solid white; font-size: 24px; transition: all 0.3s ease; }
         .my-icon-style { border-color: #3388ff; z-index: 1000 !important; }
         .other-icon-style { border-color: #ff4d4f; }
-        /* 僵尸样式 */
         .zombie-style { border-color: #ff0000 !important; background: #330000 !important; color: white !important; box-shadow: 0 0 15px rgba(255,0,0,0.8) !important; animation: pulse 1s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
         
@@ -332,22 +329,20 @@
         var gameLoopInterval = null;
 
         function startApp() {
-            // 1. 初始化地图图层 - 完美还原
+            // 1. 初始化地图图层 - 完美还原初始设置
             
-            // 卫星图 (底图 + 边界 + 街道线条)
+            // 卫星图组合: 影像 + 边界 + 街道线条
             satellite = L.layerGroup([
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }) // <--- 街道线条回来了
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }) 
             ]);
             
-            // 街道图 (备用)
+            // 备用图层
             streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB', maxZoom: 20 });
-            
-            // 夜间模式 (备用)
             darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
 
-            // 2. 创建地图 - 默认使用卫星图 (satellite)，缩放4
+            // 2. 创建地图 - 默认使用卫星图 (satellite)，缩放4，中心中国
             map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [satellite], zoomControl: false });
             L.control.zoom({position: 'topleft'}).addTo(map);
             L.control.layers({ "🛰️ 卫星图": satellite, "☀️ 街道图": streetMap, "🌑 夜间模式": darkMap }).addTo(map);
@@ -390,7 +385,7 @@
         function toggleModal(id) {
             var p = document.getElementById(id);
             var others = document.querySelectorAll('.modal-panel');
-            others.forEach(o => { if(o.id !== id) o.style.display = 'none'; }); // 互斥关闭
+            others.forEach(o => { if(o.id !== id) o.style.display = 'none'; }); 
             p.style.display = (p.style.display === 'block') ? 'none' : 'block';
         }
 
@@ -399,7 +394,7 @@
             // UI 更新
             document.querySelectorAll('.game-option').forEach(el => el.classList.remove('active'));
             document.getElementById('mode-' + mode).classList.add('active');
-            toggleModal('game-menu'); // 关闭面板
+            toggleModal('game-menu'); 
 
             // 状态重置
             myGameRole = "human";
@@ -411,7 +406,6 @@
             } else if (mode === 'biohazard') {
                 showToast("⚠️ 生化危机模式已启动！");
                 document.getElementById('biohazard-hud').style.display = 'flex';
-                // 广播我切换了模式
                 triggerManualLocate();
             }
         }
