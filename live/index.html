@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU 共享地图 (Pro版)</title>
+    <title>MOUYU 共享地图 (完美版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -15,32 +15,44 @@
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
         #map { height: 100vh; width: 100%; }
         
-        /* 登录遮罩 */
-        #login-overlay {
+        /* 通用遮罩层样式 (用于登录和SOS确认) */
+        .overlay-mask {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px);
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px);
             z-index: 9999; display: flex; justify-content: center; align-items: center;
             flex-direction: column; color: white;
         }
-        .login-box {
-            background: white; padding: 30px; border-radius: 16px; width: 90%; max-width: 320px;
+        
+        /* 弹窗盒子通用样式 */
+        .dialog-box {
+            background: white; padding: 25px; border-radius: 16px; width: 85%; max-width: 320px;
             text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
             animation: popUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            color: #333;
         }
         @keyframes popUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .login-title { color: #333; font-size: 20px; font-weight: bold; margin-bottom: 20px; }
+        
+        .dialog-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; color: #333; }
+        
+        /* 输入框样式 */
         .login-input {
             width: 100%; padding: 12px; font-size: 16px; border: 2px solid #eee; border-radius: 8px;
             margin-bottom: 15px; text-align: center; outline: none; transition: 0.3s;
         }
         .login-input:focus { border-color: #1890ff; }
-        .login-btn {
-            width: 100%; padding: 12px; background: #1890ff; color: white; border: none;
-            border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;
+        
+        /* 按钮通用样式 */
+        .action-btn {
+            width: 100%; padding: 12px; border: none; border-radius: 8px; 
+            font-size: 16px; font-weight: bold; cursor: pointer; color: white;
+            transition: transform 0.1s;
         }
-        .login-btn:active { background: #096dd9; transform: scale(0.98); }
+        .action-btn:active { transform: scale(0.98); opacity: 0.9; }
+        .btn-blue { background: #1890ff; }
+        .btn-red { background: #ff4d4f; }
+        .btn-gray { background: #f0f0f0; color: #666; }
 
-        /* 地图上的按钮组 */
+        /* 地图上的小圆按钮 */
         .map-btn {
             background: white; border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             padding: 8px 12px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; transition: all 0.2s;
@@ -85,7 +97,6 @@
         .panel-title { font-size: 14px; font-weight: 700; color: #1a1a1a; margin: 0; }
         .toggle-icon { font-size: 12px; color: #999; transition: transform 0.3s; }
         
-        /* 🟢 网络状态指示器 */
         .net-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
         .status-online { background-color: #52c41a; box-shadow: 0 0 5px #52c41a; }
         .status-offline { background-color: #ff4d4f; box-shadow: 0 0 5px #ff4d4f; }
@@ -110,7 +121,6 @@
         .chat-input { flex: 1; border: 1px solid #ddd; border-radius: 4px; padding: 6px 8px; font-size: 12px; outline: none; min-width: 0; }
         .chat-send-btn { margin-left: 6px; background: #1890ff; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px; white-space: nowrap; }
 
-        /* 设置面板行 */
         .user-setting-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
         .setting-label { font-size: 12px; color: #666; width: 30px; flex-shrink: 0; }
         .avatar-input { width: 40px; text-align: center; border: 1px solid #ddd; border-radius: 8px; padding: 5px; font-size: 16px; background: #f9f9f9; }
@@ -118,18 +128,15 @@
         .id-input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 6px; font-size: 12px; background: #f9f9f9; font-weight: bold; color: #333; }
         .gpx-btn { width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 8px; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px; }
 
-        /* 视图切换 */
         .view-switch { display: flex; gap: 5px; background: #eee; padding: 2px; border-radius: 6px; flex: 1; }
         .view-opt { flex: 1; text-align: center; font-size: 11px; padding: 4px 0; cursor: pointer; border-radius: 4px; color: #666; }
         .view-opt.active { background: white; color: #3388ff; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
-        /* 玩家列表项 */
         .player-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; margin-bottom: 6px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
         .player-head { display: flex; align-items: center; gap: 5px; font-weight: 600; font-size: 13px; color: #333; }
         .player-status-text { font-size: 11px; color: #666; margin-top: 2px; }
         .player-dist { font-size: 11px; color: #888; }
         
-        /* 地图 Marker 样式 */
         .emoji-marker-icon { position: relative; display: flex; justify-content: center; align-items: center; background: white; border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.3); border: 2px solid white; font-size: 24px; transition: all 0.3s ease; }
         .my-icon-style { border-color: #3388ff; z-index: 1000 !important; }
         .other-icon-style { border-color: #ff4d4f; }
@@ -137,19 +144,16 @@
         .status-bubble { background: white; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border-radius: 4px; padding: 2px 6px; font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; }
         .leaflet-tooltip-bottom:before { display: none; }
         
-        /* 特殊标记：旗帜和SOS */
         .flag-icon { font-size: 30px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); animation: bounce 1s infinite; }
         .sos-marker-pulse { border: 3px solid #ff4d4f; background: rgba(255, 77, 79, 0.4); border-radius: 50%; animation: markerPulse 1.5s infinite; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         @keyframes markerPulse { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
 
-        /* 气泡消息 */
         .msg-bubble-container { position: absolute; bottom: 45px; left: 0; width: 100%; pointer-events: none; display: flex; flex-direction: column-reverse; align-items: flex-start; }
         .msg-bubble { background: rgba(0, 0, 0, 0.75); color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; margin-bottom: 5px; max-width: 80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: fadeUp 0.3s ease-out; margin-left: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .chat-badge { display: none; width: 8px; height: 8px; background: #ff4d4f; border-radius: 50%; margin-right: 5px; }
         
-        /* 提示 Toast 和 SOS 警告 */
         .toast-tip { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity 0.5s; z-index: 2000; }
         .sos-alert-box { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: #ff4d4f; color: white; padding: 15px 30px; border-radius: 50px; font-weight: bold; box-shadow: 0 5px 20px rgba(255, 77, 79, 0.6); z-index: 3000; display: none; animation: shake 0.5s; cursor: pointer; }
         @keyframes shake { 0%, 100% { transform: translateX(-50%); } 25% { transform: translateX(-55%); } 75% { transform: translateX(-45%); } }
@@ -159,14 +163,30 @@
 </head>
 <body>
 
-    <div id="login-overlay">
-        <div class="login-box">
+    <div id="login-overlay" class="overlay-mask">
+        <div class="dialog-box">
             <div style="font-size: 40px; margin-bottom: 10px;">🔒</div>
-            <div class="login-title">MOUYU 内部系统</div>
+            <div class="dialog-title">MOUYU 内部系统</div>
             <input type="password" id="site-password" class="login-input" placeholder="请输入访问密码..." onkeypress="if(event.key==='Enter') checkSitePassword()">
-            <button class="login-btn" onclick="checkSitePassword()">解锁系统</button>
+            <button class="action-btn btn-blue" onclick="checkSitePassword()">解锁系统</button>
             <div id="login-error" style="color:red; font-size:12px; margin-top:10px; opacity:0; transition:opacity 0.3s;">密码错误</div>
             <div id="lib-error" style="color:red; font-size:11px; margin-top:5px; display:none;">⚠️ 加密库未加载，请刷新页面</div>
+        </div>
+    </div>
+
+    <div id="sos-confirm-overlay" class="overlay-mask" style="display: none;">
+        <div class="dialog-box" style="border-top: 5px solid #ff4d4f;">
+            <div style="font-size: 40px; margin-bottom: 10px;">⚠️</div>
+            <div class="dialog-title" style="color:#ff4d4f">确定发送 SOS 吗？</div>
+            <div style="font-size: 13px; color: #666; margin-bottom: 20px; text-align: left; background: #fff1f0; padding: 10px; border-radius: 6px;">
+                1. 所有在线队友将<b>立刻</b>看到你的位置。<br>
+                2. 屏幕将显示红色警报。<br>
+                3. 请仅在<b>紧急情况</b>下使用。
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="action-btn btn-gray" onclick="cancelSOS()">取消</button>
+                <button class="action-btn btn-red" onclick="confirmSOS()">立即发送</button>
+            </div>
         </div>
     </div>
 
@@ -246,7 +266,7 @@
 
     <div id="map"></div>
     
-    <button class="map-btn sos-btn" onclick="sendSOS()" title="发送SOS求救">SOS</button>
+    <button class="map-btn sos-btn" onclick="openSOSConfirm()" title="发送SOS求救">SOS</button>
     <button class="map-btn measure-btn" id="measure-btn" onclick="toggleMeasure()" title="测量距离">📏</button>
     <button class="map-btn follow-btn" id="follow-btn" onclick="toggleFollow()" title="视角跟随">🔄</button>
     <button class="map-btn locate-btn" onclick="triggerManualLocate()">📍 定位我</button>
@@ -342,7 +362,6 @@
         function startApp() {
             // 图层初始化
             darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
-            // OSM 街道图 (通常比 ArcGIS 快)
             osmMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
             satellite = L.layerGroup([
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
@@ -350,7 +369,7 @@
             ]);
             streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB', maxZoom: 20 });
 
-            // 默认用 OSM，速度快
+            // 默认用 OSM
             map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [satellite], zoomControl: false });
             L.control.zoom({position: 'topleft'}).addTo(map);
             L.control.layers({ "🛰️ 卫星图": satellite, "🗺️ OSM地图": osmMap, "🌑 夜间模式": darkMap, "☀️ 简洁图": streetMap }).addTo(map);
@@ -375,7 +394,6 @@
                 joinRoom(); 
             });
             client.on('offline', function() { updateNetStatus(false); });
-            client.on('reconnect', function() { console.log('🔄 Reconnecting...'); });
             client.on('message', handleMqttMessage);
             
             // 事件绑定
@@ -388,7 +406,7 @@
             locateAndShare(false); 
             setInterval(() => locateAndShare(false), 3000);
             
-            // 清理掉线玩家 (每 2 秒检查一次，超过 15 秒没信号的移除)
+            // 清理掉线玩家
             setInterval(function() {
                 var now = Date.now(); var listChanged = false;
                 for (var id in otherPlayers) { 
@@ -424,7 +442,6 @@
 
             if (currentTopic && client.connected) {
                 client.unsubscribe(currentTopic);
-                // 清空地图元素
                 for(var id in otherPlayers) { 
                     map.removeLayer(otherPlayers[id].marker); 
                     if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); 
@@ -432,7 +449,6 @@
                 otherPlayers = {}; updatePlayerList();
                 if(currentFlag) { map.removeLayer(currentFlag); currentFlag = null; }
                 sosMarkers.forEach(m => map.removeLayer(m)); sosMarkers = [];
-                
                 document.getElementById('chat-messages').innerHTML = '<div class="chat-msg-row" style="color:#999; font-style:italic;">已切换房间...</div>';
             }
             currentTopic = newTopic;
@@ -450,13 +466,26 @@
             client.publish(currentTopic, encryptPayload(dataObj));
         }
 
-        // 发送 SOS
-        function sendSOS() {
-            if(!myLatLng) { alert("尚未获取到你的位置，无法发送求救！"); return; }
-            if(confirm("⚠️ 确定发送紧急 SOS 信号吗？\n所有人将立刻看到你的位置！")) {
-                publishData({ type: 'sos', senderId: myUniqueId, senderName: myName, lat: myLatLng.lat, lng: myLatLng.lng });
-                showToast("🚨 SOS 信号已发送！");
-            }
+        // ==========================
+        // 🚨 SOS 功能改写
+        // ==========================
+        
+        // 1. 打开弹窗
+        function openSOSConfirm() {
+            if(!myLatLng) { showToast("尚未获取到你的位置，无法发送求救！"); return; }
+            document.getElementById('sos-confirm-overlay').style.display = 'flex';
+        }
+
+        // 2. 取消 SOS
+        function cancelSOS() {
+            document.getElementById('sos-confirm-overlay').style.display = 'none';
+        }
+
+        // 3. 确认发送 SOS
+        function confirmSOS() {
+            document.getElementById('sos-confirm-overlay').style.display = 'none';
+            publishData({ type: 'sos', senderId: myUniqueId, senderName: myName, lat: myLatLng.lat, lng: myLatLng.lng });
+            showToast("🚨 SOS 信号已发送！");
         }
 
         function handleMqttMessage(topic, message) {
@@ -470,16 +499,12 @@
                         var sosAlert = document.getElementById('sos-alert');
                         sosAlert.style.display = 'block';
                         sosAlert.innerText = `🚨 ${data.senderName} 发出求救！`;
-                        // 飞到求救位置
                         map.flyTo([data.lat, data.lng], 18, { animate: true, duration: 2 });
                         
-                        // 地图上添加脉冲圈
                         var pulseIcon = L.divIcon({ className: 'sos-marker-pulse', iconSize: [50, 50], iconAnchor: [25, 25] });
                         var sosM = L.marker([data.lat, data.lng], { icon: pulseIcon }).addTo(map)
                             .bindPopup(`<b style="color:red">🆘 ${data.senderName} 需要帮助!</b><br>时间: ${new Date().toLocaleTimeString()}`).openPopup();
                         sosMarkers.push(sosM);
-                        
-                        // 1分钟后自动移除标记
                         setTimeout(() => { map.removeLayer(sosM); }, 60000);
                     }
                     return;
@@ -504,7 +529,6 @@
                 
                 if (data.id === myUniqueId) return;
                 
-                // 处理玩家位置更新
                 var now = Date.now(); 
                 var pAvatar = data.avatar || "📍"; 
                 var pStatus = data.status || ""; 
@@ -515,19 +539,15 @@
                     var newMarker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
                     if(pStatus) newMarker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' });
                     
-                    // 点击他人Marker显示名字
                     newMarker.bindPopup(`<b>${pName}</b>`);
-                    
                     var newPolyline = L.polyline([], { color: '#ff4d4f', weight: 3, opacity: 0.6, dashArray: '5, 5' }).addTo(map); 
                     newPolyline.addLatLng([data.lat, data.lng]);
                     
                     otherPlayers[data.id] = { marker: newMarker, polyline: newPolyline, lastSeen: now, lat: data.lat, lng: data.lng, avatar: pAvatar, status: pStatus, name: pName };
                 } else {
                     var p = otherPlayers[data.id]; 
-                    // 平滑移动
                     p.marker.setLatLng([data.lat, data.lng]); 
                     p.polyline.addLatLng([data.lat, data.lng]);
-                    // 限制轨迹长度防止卡顿 (保留最近50个点)
                     if(p.polyline.getLatLngs().length > 50) {
                          var pts = p.polyline.getLatLngs();
                          pts.shift();
@@ -685,7 +705,6 @@
             myLatLng = e.latlng; 
             if (isFollowing) map.panTo(myLatLng);
             
-            // 绘制自己的轨迹
             if (!myPolyline) myPolyline = L.polyline([], { color: '#3388ff', weight: 4, opacity: 0.8 }).addTo(map); 
             myPolyline.addLatLng(e.latlng);
 
