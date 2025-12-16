@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU的共享地图 (修复版)</title>
+    <title>MOUYU的共享地图 (最终修复版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -227,29 +227,25 @@
 
     <script>
         // ============================================
-        // 🔐 1. 网站门禁逻辑 (修正版)
+        // 🔐 1. 网站门禁逻辑 (已修正)
         // ============================================
         
-        // 密码 "666" 的正确 SHA256 哈希值
-        var SITE_HASH = "fae0b27c451c728867a567e8c1bb4e53db605cf79c2e74d15682857432f6b86e"; 
+        // ✅ 修正：这是 '666' 对应的正确 SHA256 哈希值
+        var SITE_HASH = "c7c616822f366fb1b5e0756af498cc11d2c0862edcb32ca65882f622ff39de1b"; 
         var isSystemUnlocked = false;
 
         function checkSitePassword() {
-            // 安全检查：确保加密库已加载
             if (typeof CryptoJS === 'undefined') {
                 document.getElementById('lib-error').style.display = 'block';
-                alert("❌ 系统错误：加密组件加载失败。\n\n请检查网络连接或刷新页面。\n如果是国内网络，CDN 可能被阻断。");
                 return;
             }
 
             var inputRaw = document.getElementById('site-password').value;
-            // 重要：去除前后空格，防止误输
             var input = inputRaw.trim(); 
             
-            // 计算输入内容的哈希
             var inputHash = CryptoJS.SHA256(input).toString();
 
-            // 调试信息：如果你还进不去，按 F12 打开控制台看这里的输出
+            // 调试用：如果还进不去，请查看控制台输出
             console.log("输入内容:", input);
             console.log("计算哈希:", inputHash);
             console.log("目标哈希:", SITE_HASH);
@@ -261,13 +257,13 @@
             } else {
                 var err = document.getElementById('login-error');
                 err.style.opacity = 1;
-                err.innerText = "密码错误 (请检查空格)";
+                err.innerText = "密码错误";
                 setTimeout(function() { err.style.opacity = 0; }, 2000);
             }
         }
         
         // ============================================
-        // 🔐 2. 数据加密/解密核心逻辑
+        // 🔐 2. 数据加密/解密 (保持不变)
         // ============================================
         
         function getRoomPassword() {
@@ -275,7 +271,7 @@
         }
 
         function encryptPayload(dataObj) {
-            if (typeof CryptoJS === 'undefined') return JSON.stringify(dataObj); // 降级处理
+            if (typeof CryptoJS === 'undefined') return JSON.stringify(dataObj);
 
             var pass = getRoomPassword();
             var jsonStr = JSON.stringify(dataObj);
@@ -314,6 +310,30 @@
         }
 
         // ============================================
+        // 🛠️ 3. 安全存储封装 (解决 Storage 被禁用问题)
+        // ============================================
+        
+        // 封装一个简单的存储器，如果 localStorage 被禁用，自动降级为内存存储
+        var SafeStorage = {
+            memory: {},
+            setItem: function(key, value) {
+                try {
+                    localStorage.setItem(key, value);
+                } catch(e) {
+                    console.warn("Storage blocked, using memory", e);
+                    this.memory[key] = value;
+                }
+            },
+            getItem: function(key) {
+                try {
+                    return localStorage.getItem(key);
+                } catch(e) {
+                    return this.memory[key] || null;
+                }
+            }
+        };
+
+        // ============================================
         // 🗺️ 地图与系统核心
         // ============================================
         var map, client, satellite, streetMap, darkMap;
@@ -338,12 +358,13 @@
             L.control.layers({ "🛰️ 卫星图": satellite, "🌑 夜间模式": darkMap, "☀️ 街道图": streetMap }).addTo(map);
             L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
             
-            myUniqueId = localStorage.getItem('my_unique_id');
+            // ✅ 使用 SafeStorage 替代 localStorage
+            myUniqueId = SafeStorage.getItem('my_unique_id');
             if (!myUniqueId) {
                 myUniqueId = "uid_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-                localStorage.setItem('my_unique_id', myUniqueId);
+                SafeStorage.setItem('my_unique_id', myUniqueId);
             }
-            myName = localStorage.getItem('my_nickname');
+            myName = SafeStorage.getItem('my_nickname');
             if (!myName) { myName = "神秘人" + Math.floor(Math.random() * 100); }
             document.getElementById('my-name-input').value = myName;
             document.getElementById('my-status-text').innerText = "系统ID: " + myUniqueId.substring(0,8)+"...";
@@ -513,7 +534,9 @@
         }
 
         function triggerQuietUpdate() { clearTimeout(debounceTimer); debounceTimer = setTimeout(function() { locateAndShare(false); }, 800); }
-        document.getElementById('my-name-input').addEventListener('input', function(e) { myName = e.target.value.trim(); localStorage.setItem('my_nickname', myName); triggerQuietUpdate(); });
+        
+        // ✅ 修正：使用 SafeStorage
+        document.getElementById('my-name-input').addEventListener('input', function(e) { myName = e.target.value.trim(); SafeStorage.setItem('my_nickname', myName); triggerQuietUpdate(); });
         document.getElementById('my-avatar-input').addEventListener('input', function(e) { myCurrentAvatar = e.target.value; updateMyMarkerVisuals(); triggerQuietUpdate(); });
         document.getElementById('my-status-input').addEventListener('input', function(e) { myCurrentStatus = e.target.value; updateMyMarkerVisuals(); triggerQuietUpdate(); });
 
