@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MOUYU 共享地图 (完美版)</title>
+    <title>MOUYU 共享地图 (生化危机版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -12,18 +12,25 @@
            全局与基础样式
            ======================== */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow: hidden; transition: background 0.5s; }
         #map { height: 100vh; width: 100%; }
         
-        /* 通用遮罩层样式 (用于登录和SOS确认) */
+        /* 🩸 被感染时的全屏特效 */
+        body.infected-mode::after {
+            content: ""; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            box-shadow: inset 0 0 50px 20px rgba(255, 0, 0, 0.6);
+            pointer-events: none; z-index: 99999;
+            animation: breathe 2s infinite;
+        }
+        @keyframes breathe { 0% { box-shadow: inset 0 0 50px 20px rgba(255, 0, 0, 0.4); } 50% { box-shadow: inset 0 0 80px 40px rgba(255, 0, 0, 0.7); } 100% { box-shadow: inset 0 0 50px 20px rgba(255, 0, 0, 0.4); } }
+
+        /* 弹窗与遮罩 */
         .overlay-mask {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px);
             z-index: 9999; display: flex; justify-content: center; align-items: center;
             flex-direction: column; color: white;
         }
-        
-        /* 弹窗盒子通用样式 */
         .dialog-box {
             background: white; padding: 25px; border-radius: 16px; width: 85%; max-width: 320px;
             text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
@@ -31,28 +38,27 @@
             color: #333;
         }
         @keyframes popUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        
         .dialog-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; color: #333; }
         
-        /* 输入框样式 */
         .login-input {
             width: 100%; padding: 12px; font-size: 16px; border: 2px solid #eee; border-radius: 8px;
             margin-bottom: 15px; text-align: center; outline: none; transition: 0.3s;
         }
         .login-input:focus { border-color: #1890ff; }
         
-        /* 按钮通用样式 */
         .action-btn {
             width: 100%; padding: 12px; border: none; border-radius: 8px; 
             font-size: 16px; font-weight: bold; cursor: pointer; color: white;
-            transition: transform 0.1s;
+            transition: transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 5px;
         }
         .action-btn:active { transform: scale(0.98); opacity: 0.9; }
         .btn-blue { background: #1890ff; }
         .btn-red { background: #ff4d4f; }
+        .btn-green { background: #52c41a; }
         .btn-gray { background: #f0f0f0; color: #666; }
+        .btn-purple { background: #722ed1; } /* 僵尸按钮色 */
 
-        /* 地图上的小圆按钮 */
+        /* 地图按钮 */
         .map-btn {
             background: white; border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             padding: 8px 12px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; transition: all 0.2s;
@@ -64,8 +70,6 @@
         .locate-btn { position: absolute; bottom: 40px; right: 20px; z-index: 999; padding: 12px 20px; border-radius: 50px; }
         .follow-btn { position: absolute; bottom: 100px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
         .measure-btn { position: absolute; bottom: 150px; right: 20px; z-index: 999; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; }
-        
-        /* 🆘 SOS 按钮样式 */
         .sos-btn {
             position: absolute; bottom: 210px; right: 20px; z-index: 999;
             width: 40px; height: 40px; border-radius: 50%;
@@ -76,7 +80,7 @@
         }
         @keyframes pulse-shadow { 0% { box-shadow: 0 0 0 0 rgba(255, 77, 79, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 77, 79, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 77, 79, 0); } }
 
-        /* 顶部面板 */
+        /* 面板 */
         .player-list-panel {
             position: absolute; top: 20px; right: 20px; z-index: 1000;
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
@@ -96,12 +100,10 @@
         .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px; cursor: pointer; }
         .panel-title { font-size: 14px; font-weight: 700; color: #1a1a1a; margin: 0; }
         .toggle-icon { font-size: 12px; color: #999; transition: transform 0.3s; }
-        
         .net-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
         .status-online { background-color: #52c41a; box-shadow: 0 0 5px #52c41a; }
         .status-offline { background-color: #ff4d4f; box-shadow: 0 0 5px #ff4d4f; }
 
-        /* 聊天面板 */
         .chat-panel {
             position: absolute; bottom: 30px; left: 20px; z-index: 1000;
             width: 280px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
@@ -109,7 +111,6 @@
             display: flex; flex-direction: column; transition: width 0.3s, transform 0.3s;
         }
         @media (max-width: 600px) { .chat-panel { width: 70%; left: 10px; bottom: 80px; } }
-        
         .chat-header { background: #f0f2f5; padding: 10px 12px; font-size: 12px; font-weight: bold; color: #666; display: flex; justify-content: space-between; cursor: pointer; border-radius: 12px 12px 0 0; }
         .chat-panel.collapsed .chat-header { border-radius: 12px; }
         .chat-content-wrapper { display: block; }
@@ -140,6 +141,8 @@
         .emoji-marker-icon { position: relative; display: flex; justify-content: center; align-items: center; background: white; border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.3); border: 2px solid white; font-size: 24px; transition: all 0.3s ease; }
         .my-icon-style { border-color: #3388ff; z-index: 1000 !important; }
         .other-icon-style { border-color: #ff4d4f; }
+        .zombie-icon-style { border-color: #722ed1 !important; box-shadow: 0 0 15px rgba(114, 46, 209, 0.8); z-index: 2000 !important; }
+
         .heading-arrow { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #3388ff; z-index: -1; display: none; }
         .status-bubble { background: white; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border-radius: 4px; padding: 2px 6px; font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; }
         .leaflet-tooltip-bottom:before { display: none; }
@@ -151,13 +154,10 @@
 
         .msg-bubble-container { position: absolute; bottom: 45px; left: 0; width: 100%; pointer-events: none; display: flex; flex-direction: column-reverse; align-items: flex-start; }
         .msg-bubble { background: rgba(0, 0, 0, 0.75); color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; margin-bottom: 5px; max-width: 80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: fadeUp 0.3s ease-out; margin-left: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .chat-badge { display: none; width: 8px; height: 8px; background: #ff4d4f; border-radius: 50%; margin-right: 5px; }
-        
         .toast-tip { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity 0.5s; z-index: 2000; }
         .sos-alert-box { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: #ff4d4f; color: white; padding: 15px 30px; border-radius: 50px; font-weight: bold; box-shadow: 0 5px 20px rgba(255, 77, 79, 0.6); z-index: 3000; display: none; animation: shake 0.5s; cursor: pointer; }
         @keyframes shake { 0%, 100% { transform: translateX(-50%); } 25% { transform: translateX(-55%); } 75% { transform: translateX(-45%); } }
-        
         .leaflet-control-scale { margin-bottom: 5px !important; margin-left: 10px !important; }
     </style>
 </head>
@@ -179,9 +179,7 @@
             <div style="font-size: 40px; margin-bottom: 10px;">⚠️</div>
             <div class="dialog-title" style="color:#ff4d4f">确定发送 SOS 吗？</div>
             <div style="font-size: 13px; color: #666; margin-bottom: 20px; text-align: left; background: #fff1f0; padding: 10px; border-radius: 6px;">
-                1. 所有在线队友将<b>立刻</b>看到你的位置。<br>
-                2. 屏幕将显示红色警报。<br>
-                3. 请仅在<b>紧急情况</b>下使用。
+                所有人将立刻看到你的位置。<br>请仅在紧急情况下使用。
             </div>
             <div style="display: flex; gap: 10px;">
                 <button class="action-btn btn-gray" onclick="cancelSOS()">取消</button>
@@ -210,9 +208,18 @@
                 </div>
                 <div class="user-setting-row room-input-row">
                     <span class="setting-label" style="font-weight:bold; color:#0050b3;">密码</span>
-                    <input type="text" id="pass-input" class="status-input" placeholder="作为加密密钥(重要)" style="background:white;">
+                    <input type="text" id="pass-input" class="status-input" placeholder="密钥(可选)" style="background:white;">
                 </div>
-                <button class="gpx-btn" onclick="joinRoom()" style="background:#1890ff; margin-top:5px; height: 32px; line-height: 1;">🚪 进入房间 (重置加密)</button>
+                <button class="gpx-btn" onclick="joinRoom()" style="background:#1890ff; margin-top:5px; height: 32px; line-height: 1;">🚪 进入/重连</button>
+            </div>
+
+            <div style="margin-bottom: 10px; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                <div style="background: #f9f9f9; padding: 8px; font-size: 12px; font-weight: bold; color: #666; border-bottom: 1px solid #eee;">🎮 游戏模式 (生化危机)</div>
+                <div style="padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                    <button class="action-btn btn-purple" onclick="becomeZombie(true)">🧬 变身母体 (开始)</button>
+                    <button class="action-btn btn-green" onclick="resetGame()">💉 注射血清 (重置)</button>
+                    <div style="font-size: 11px; color: #999; text-align: center;">靠近感染者 (10米内) 将自动变异</div>
+                </div>
             </div>
             
             <div style="padding-bottom: 10px; border-bottom: 1px dashed #eee; margin-bottom: 10px;">
@@ -232,10 +239,6 @@
                     <span class="setting-label">形象</span>
                     <input type="text" id="my-avatar-input" class="avatar-input" value="😼" maxlength="2">
                 </div>
-                <div class="user-setting-row">
-                    <span class="setting-label">状态</span>
-                    <input type="text" id="my-status-input" class="status-input" placeholder="状态..." maxlength="10">
-                </div>
             </div>
             <div id="player-list-container">
                 <div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">扫描中...</div>
@@ -249,7 +252,7 @@
         <div class="chat-header" onclick="toggleChat()">
             <div style="display:flex; align-items:center;">
                 <div class="chat-badge" id="chat-badge"></div>
-                <span>💬 频道 (无记录)</span>
+                <span>💬 频道</span>
             </div>
             <span id="chat-toggle-icon">▼</span>
         </div>
@@ -266,9 +269,9 @@
 
     <div id="map"></div>
     
-    <button class="map-btn sos-btn" onclick="openSOSConfirm()" title="发送SOS求救">SOS</button>
-    <button class="map-btn measure-btn" id="measure-btn" onclick="toggleMeasure()" title="测量距离">📏</button>
-    <button class="map-btn follow-btn" id="follow-btn" onclick="toggleFollow()" title="视角跟随">🔄</button>
+    <button class="map-btn sos-btn" onclick="openSOSConfirm()" title="SOS">SOS</button>
+    <button class="map-btn measure-btn" id="measure-btn" onclick="toggleMeasure()" title="测量">📏</button>
+    <button class="map-btn follow-btn" id="follow-btn" onclick="toggleFollow()" title="跟随">🔄</button>
     <button class="map-btn locate-btn" onclick="triggerManualLocate()">📍 定位我</button>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -276,47 +279,32 @@
     <script src="https://unpkg.com/crypto-js@4.1.1/crypto-js.js"></script>
 
     <script>
-        // ============================================
-        // 🔐 1. 网站门禁 (Hash: c7e6...)
-        // ============================================
+        // 1. 门禁 (Hash)
         var SITE_HASH = "c7e616822f366fb1b5e0756af498cc11d2c0862edcb32ca65882f622ff39de1b"; 
         var isSystemUnlocked = false;
 
         function checkSitePassword() {
-            if (typeof CryptoJS === 'undefined') {
-                document.getElementById('lib-error').style.display = 'block';
-                return;
-            }
-            var inputRaw = document.getElementById('site-password').value;
-            var input = inputRaw.trim(); 
-            var inputHash = CryptoJS.SHA256(input).toString();
-
-            if (inputHash === SITE_HASH) {
+            if (typeof CryptoJS === 'undefined') { document.getElementById('lib-error').style.display = 'block'; return; }
+            var input = document.getElementById('site-password').value.trim(); 
+            if (CryptoJS.SHA256(input).toString() === SITE_HASH) {
                 document.getElementById('login-overlay').style.display = 'none';
                 isSystemUnlocked = true;
                 startApp(); 
             } else {
                 var err = document.getElementById('login-error');
-                err.style.opacity = 1;
-                err.innerText = "密码错误";
-                setTimeout(function() { err.style.opacity = 0; }, 2000);
+                err.style.opacity = 1; setTimeout(() => { err.style.opacity = 0; }, 2000);
             }
         }
         
-        // ============================================
-        // 🔐 2. 加密通信 (AES)
-        // ============================================
+        // 2. 加密通信
         function getRoomPassword() { return document.getElementById('pass-input').value.trim(); }
-
         function encryptPayload(dataObj) {
             if (typeof CryptoJS === 'undefined') return JSON.stringify(dataObj);
             var pass = getRoomPassword();
             var jsonStr = JSON.stringify(dataObj);
             if (!pass) return jsonStr; 
-            try { return "ENC:" + CryptoJS.AES.encrypt(jsonStr, pass).toString(); } 
-            catch(e) { console.error("加密失败", e); return jsonStr; }
+            try { return "ENC:" + CryptoJS.AES.encrypt(jsonStr, pass).toString(); } catch(e) { return jsonStr; }
         }
-
         function decryptPayload(payloadStr) {
             if (typeof CryptoJS === 'undefined') return null;
             var pass = getRoomPassword();
@@ -325,8 +313,7 @@
                 try {
                     var bytes = CryptoJS.AES.decrypt(payloadStr.substring(4), pass);
                     var originalText = bytes.toString(CryptoJS.enc.Utf8);
-                    if (!originalText) return null; 
-                    return JSON.parse(originalText);
+                    return originalText ? JSON.parse(originalText) : null;
                 } catch (e) { return null; }
             } else {
                 if (pass) return null; 
@@ -334,33 +321,23 @@
             }
         }
 
-        // ============================================
-        // 🛠️ 3. 安全存储 (防止隐私模式报错)
-        // ============================================
+        // 3. 安全存储
         var SafeStorage = {
             memory: {},
-            setItem: function(key, value) {
-                try { localStorage.setItem(key, value); } catch(e) { this.memory[key] = value; }
-            },
-            getItem: function(key) {
-                try { return localStorage.getItem(key); } catch(e) { return this.memory[key] || null; }
-            }
+            setItem: function(key, value) { try { localStorage.setItem(key, value); } catch(e) { this.memory[key] = value; } },
+            getItem: function(key) { try { return localStorage.getItem(key); } catch(e) { return this.memory[key] || null; } }
         };
 
-        // ============================================
-        // 🗺️ 核心逻辑
-        // ============================================
+        // 核心变量
         var map, client, satellite, streetMap, darkMap, osmMap;
         var myUniqueId, myName;
         var otherPlayers = {}; var myLatLng = null; var myMarker = null; var myPolyline = null;
         var myCurrentAvatar = "😼"; var myCurrentStatus = ""; var currentFlag = null; var sosMarkers = [];
         var isMeasuring = false; var measurePoints = []; var measureLine = null; var measureTips = [];
-        var isFollowing = false; var myHeading = 0; 
-        var currentTopic = ""; 
-        var debounceTimer = null;
+        var isFollowing = false; var myHeading = 0; var currentTopic = ""; 
+        var amIZombie = false; // 是否感染
 
         function startApp() {
-            // 图层初始化
             darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20 });
             osmMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
             satellite = L.layerGroup([
@@ -369,69 +346,37 @@
             ]);
             streetMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB', maxZoom: 20 });
 
-            // 默认用 OSM
             map = L.map('map', { center: [35.8617, 104.1954], zoom: 4, layers: [satellite], zoomControl: false });
             L.control.zoom({position: 'topleft'}).addTo(map);
             L.control.layers({ "🛰️ 卫星图": satellite, "🗺️ OSM地图": osmMap, "🌑 夜间模式": darkMap, "☀️ 简洁图": streetMap }).addTo(map);
             L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
             
-            // 用户ID
-            myUniqueId = SafeStorage.getItem('my_unique_id');
-            if (!myUniqueId) {
-                myUniqueId = "uid_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-                SafeStorage.setItem('my_unique_id', myUniqueId);
-            }
-            myName = SafeStorage.getItem('my_nickname');
-            if (!myName) { myName = "队友" + Math.floor(Math.random() * 100); }
+            myUniqueId = SafeStorage.getItem('my_unique_id') || "uid_" + Date.now() + Math.floor(Math.random()*1000);
+            SafeStorage.setItem('my_unique_id', myUniqueId);
+            myName = SafeStorage.getItem('my_nickname') || "幸存者" + Math.floor(Math.random()*100);
             document.getElementById('my-name-input').value = myName;
-            document.getElementById('my-status-text').innerText = "ID: " + myUniqueId.substring(0,6);
             
-            // MQTT 连接
             client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-            client.on('connect', function () { 
-                console.log('✅ MQTT Connected'); 
-                updateNetStatus(true);
-                joinRoom(); 
-            });
+            client.on('connect', function () { updateNetStatus(true); joinRoom(); });
             client.on('offline', function() { updateNetStatus(false); });
             client.on('message', handleMqttMessage);
             
-            // 事件绑定
             map.on('click', onMapClick);
             map.on('dragstart', function() { if(isFollowing) toggleFollow(); });
             map.on('contextmenu', onMapContextMenu);
             map.on('locationfound', onLocationFound);
 
-            // 定位循环
             locateAndShare(false); 
-            setInterval(() => locateAndShare(false), 3000);
-            
-            // 清理掉线玩家
-            setInterval(function() {
-                var now = Date.now(); var listChanged = false;
-                for (var id in otherPlayers) { 
-                    if (now - otherPlayers[id].lastSeen > 15000) { 
-                        map.removeLayer(otherPlayers[id].marker); 
-                        if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); 
-                        delete otherPlayers[id]; 
-                        listChanged = true; 
-                    } 
-                }
-                if(listChanged) updatePlayerList();
-            }, 2000);
+            setInterval(() => locateAndShare(false), 2000); // 加快位置刷新频率到2秒
+            setInterval(checkZombieInfection, 1000); // 🧟‍♂️ 每秒检查一次感染
 
             setTimeout(function(){ showToast("长按地图插旗 | 点击直尺测量"); }, 1000);
             applyViewMode();
         }
 
         function updateNetStatus(isOnline) {
-            var dot = document.getElementById('net-status-dot');
-            if(isOnline) {
-                dot.className = "net-status-dot status-online";
-            } else {
-                dot.className = "net-status-dot status-offline";
-                document.getElementById('my-status-text').innerText = "连接断开...";
-            }
+            document.getElementById('net-status-dot').className = isOnline ? "net-status-dot status-online" : "net-status-dot status-offline";
+            document.getElementById('my-status-text').innerText = isOnline ? "在线 | ID:" + myUniqueId.substring(0,4) : "离线...";
         }
 
         function getTopic(room) { return 'mouyu/live/' + encodeURIComponent(room || "大厅"); }
@@ -439,17 +384,12 @@
         function joinRoom() {
             var room = document.getElementById('room-input').value.trim();
             var newTopic = getTopic(room);
-
             if (currentTopic && client.connected) {
                 client.unsubscribe(currentTopic);
-                for(var id in otherPlayers) { 
-                    map.removeLayer(otherPlayers[id].marker); 
-                    if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); 
-                }
+                for(var id in otherPlayers) { map.removeLayer(otherPlayers[id].marker); if(otherPlayers[id].polyline) map.removeLayer(otherPlayers[id].polyline); }
                 otherPlayers = {}; updatePlayerList();
                 if(currentFlag) { map.removeLayer(currentFlag); currentFlag = null; }
                 sosMarkers.forEach(m => map.removeLayer(m)); sosMarkers = [];
-                document.getElementById('chat-messages').innerHTML = '<div class="chat-msg-row" style="color:#999; font-style:italic;">已切换房间...</div>';
             }
             currentTopic = newTopic;
             if (client.connected) {
@@ -457,31 +397,80 @@
                 publishData({ type: 'chat', senderId: 'SYS', senderName: '系统', text: `${myName} 进房` });
                 triggerManualLocate();
             }
-            alert("✅ 进入: " + room + "\n🔐 加密: " + (getRoomPassword() ? "开启" : "关闭"));
+            alert("✅ 进入: " + room);
             document.querySelector('.panel-title').innerText = "📡 房间: " + room;
         }
 
         function publishData(dataObj) {
             if (!client || !client.connected) return;
+            // 每次发送都带上僵尸状态
+            dataObj.isZombie = amIZombie;
             client.publish(currentTopic, encryptPayload(dataObj));
         }
 
         // ==========================
-        // 🚨 SOS 功能改写
+        // 🧟‍♂️ 生化危机逻辑
         // ==========================
         
-        // 1. 打开弹窗
+        function becomeZombie(isMother) {
+            if (amIZombie) return; // 已经是僵尸了
+            amIZombie = true;
+            document.body.classList.add('infected-mode'); // 开启红屏特效
+            
+            // 震动反馈 (部分手机支持)
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 500]);
+            
+            var msg = isMother ? "🧬 我已变异为母体！游戏开始！" : "🧟‍♂️ 我被感染了！";
+            publishData({ type: 'chat', senderId: myUniqueId, senderName: myName, text: msg });
+            
+            // 强制更新头像和状态
+            myCurrentAvatar = "🧟‍♂️";
+            document.getElementById('my-avatar-input').value = "🧟‍♂️";
+            myCurrentStatus = "已感染";
+            updateMyMarkerVisuals();
+            triggerManualLocate();
+            showToast(isMother ? "你已变身母体，去抓人！" : "警告：你已被感染！");
+        }
+
+        function resetGame() {
+            amIZombie = false;
+            document.body.classList.remove('infected-mode');
+            myCurrentAvatar = "😼";
+            document.getElementById('my-avatar-input').value = "😼";
+            myCurrentStatus = "幸存者";
+            updateMyMarkerVisuals();
+            triggerManualLocate();
+            publishData({ type: 'chat', senderId: myUniqueId, senderName: myName, text: "💉 我已注射血清，恢复人类。" });
+            showToast("身份已重置为人类");
+        }
+
+        // 核心检测循环
+        function checkZombieInfection() {
+            if (amIZombie || !myLatLng) return; // 如果我是僵尸，或者还没定位，跳过
+            
+            for (var id in otherPlayers) {
+                var p = otherPlayers[id];
+                // 只有当对方是僵尸 (isZombie=true)
+                if (p.isZombie && p.lat && p.lng) {
+                    var dist = map.distance(myLatLng, [p.lat, p.lng]);
+                    // 距离小于 10 米
+                    if (dist < 10) {
+                        console.log("接触感染源！距离:", dist);
+                        becomeZombie(false); // 被动感染
+                        break;
+                    }
+                }
+            }
+        }
+
+        // ==========================
+        // 🚨 SOS
+        // ==========================
         function openSOSConfirm() {
-            if(!myLatLng) { showToast("尚未获取到你的位置，无法发送求救！"); return; }
+            if(!myLatLng) { showToast("定位中，请稍后..."); return; }
             document.getElementById('sos-confirm-overlay').style.display = 'flex';
         }
-
-        // 2. 取消 SOS
-        function cancelSOS() {
-            document.getElementById('sos-confirm-overlay').style.display = 'none';
-        }
-
-        // 3. 确认发送 SOS
+        function cancelSOS() { document.getElementById('sos-confirm-overlay').style.display = 'none'; }
         function confirmSOS() {
             document.getElementById('sos-confirm-overlay').style.display = 'none';
             publishData({ type: 'sos', senderId: myUniqueId, senderName: myName, lat: myLatLng.lat, lng: myLatLng.lng });
@@ -493,37 +482,23 @@
                 var data = decryptPayload(message.toString());
                 if (!data) return; 
 
-                // 🚨 处理 SOS
-                if (data.type === 'sos') {
-                    if (data.senderId !== myUniqueId) {
-                        var sosAlert = document.getElementById('sos-alert');
-                        sosAlert.style.display = 'block';
-                        sosAlert.innerText = `🚨 ${data.senderName} 发出求救！`;
-                        map.flyTo([data.lat, data.lng], 18, { animate: true, duration: 2 });
-                        
-                        var pulseIcon = L.divIcon({ className: 'sos-marker-pulse', iconSize: [50, 50], iconAnchor: [25, 25] });
-                        var sosM = L.marker([data.lat, data.lng], { icon: pulseIcon }).addTo(map)
-                            .bindPopup(`<b style="color:red">🆘 ${data.senderName} 需要帮助!</b><br>时间: ${new Date().toLocaleTimeString()}`).openPopup();
-                        sosMarkers.push(sosM);
-                        setTimeout(() => { map.removeLayer(sosM); }, 60000);
-                    }
+                if (data.type === 'sos' && data.senderId !== myUniqueId) {
+                    document.getElementById('sos-alert').style.display = 'block';
+                    map.flyTo([data.lat, data.lng], 18);
+                    var sosM = L.marker([data.lat, data.lng], { icon: L.divIcon({ className: 'sos-marker-pulse', iconSize: [50,50], iconAnchor:[25,25] }) }).addTo(map)
+                        .bindPopup(`<b style="color:red">🆘 ${data.senderName}</b>`).openPopup();
+                    sosMarkers.push(sosM); setTimeout(() => map.removeLayer(sosM), 60000);
                     return;
                 }
 
-                if (data.type === 'chat') { 
-                    if (data.senderId !== myUniqueId) appendChatMsg(data.senderName, data.text, false); 
-                    return; 
-                }
+                if (data.type === 'chat' && data.senderId !== myUniqueId) { appendChatMsg(data.senderName, data.text, false); return; }
                 
                 if (data.type === 'flag_update') {
                     if (data.action === 'add') {
                         if (currentFlag) map.removeLayer(currentFlag);
-                        var flagIcon = L.divIcon({ className: 'flag-icon', html: '🏁', iconSize: [30, 40], iconAnchor: [15, 40] });
-                        currentFlag = L.marker([data.lat, data.lng], { icon: flagIcon }).addTo(map)
-                            .bindPopup(`<b>🏁 集合点</b><br>发起: ${data.senderName}<br><button onclick="removeFlag()">❌ 取消</button>`).openPopup();
-                    } else if (data.action === 'remove') { 
-                        if (currentFlag) { map.removeLayer(currentFlag); currentFlag = null; } 
-                    }
+                        currentFlag = L.marker([data.lat, data.lng], { icon: L.divIcon({ className: 'flag-icon', html: '🏁', iconSize: [30,40], iconAnchor:[15,40] }) }).addTo(map)
+                            .bindPopup(`<b>🏁 集合</b><br>${data.senderName}`).openPopup();
+                    } else if (data.action === 'remove') { if (currentFlag) { map.removeLayer(currentFlag); currentFlag = null; } }
                     return;
                 }
                 
@@ -531,64 +506,48 @@
                 
                 var now = Date.now(); 
                 var pAvatar = data.avatar || "📍"; 
-                var pStatus = data.status || ""; 
-                var pName = data.name || "未知";
+                var isZombie = !!data.isZombie; // 获取对方是否僵尸
                 
                 if (!otherPlayers[data.id]) {
-                    var icon = L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
+                    var cssClass = isZombie ? 'emoji-marker-icon zombie-icon-style' : 'emoji-marker-icon other-icon-style';
+                    var icon = L.divIcon({ className: cssClass, html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] });
                     var newMarker = L.marker([data.lat, data.lng], { icon: icon }).addTo(map);
-                    if(pStatus) newMarker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' });
-                    
-                    newMarker.bindPopup(`<b>${pName}</b>`);
-                    var newPolyline = L.polyline([], { color: '#ff4d4f', weight: 3, opacity: 0.6, dashArray: '5, 5' }).addTo(map); 
-                    newPolyline.addLatLng([data.lat, data.lng]);
-                    
-                    otherPlayers[data.id] = { marker: newMarker, polyline: newPolyline, lastSeen: now, lat: data.lat, lng: data.lng, avatar: pAvatar, status: pStatus, name: pName };
+                    newMarker.bindPopup(`<b>${data.name}</b>`);
+                    var newPolyline = L.polyline([], { color: isZombie ? '#722ed1' : '#ff4d4f', weight: 3, opacity: 0.6 }).addTo(map); 
+                    otherPlayers[data.id] = { marker: newMarker, polyline: newPolyline, lastSeen: now, lat: data.lat, lng: data.lng, isZombie: isZombie };
                 } else {
                     var p = otherPlayers[data.id]; 
                     p.marker.setLatLng([data.lat, data.lng]); 
                     p.polyline.addLatLng([data.lat, data.lng]);
-                    if(p.polyline.getLatLngs().length > 50) {
-                         var pts = p.polyline.getLatLngs();
-                         pts.shift();
-                         p.polyline.setLatLngs(pts);
-                    }
+                    p.lastSeen = now; p.lat = data.lat; p.lng = data.lng; p.isZombie = isZombie;
                     
-                    p.lastSeen = now; p.lat = data.lat; p.lng = data.lng;
-                    if (p.name !== pName) { p.marker.bindPopup(`<b>${pName}</b>`); p.name = pName; }
-                    if (p.avatar !== pAvatar) { 
-                        p.marker.setIcon(L.divIcon({ className: 'emoji-marker-icon other-icon-style', html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] })); 
-                        p.avatar = pAvatar; 
-                    }
-                    if (p.status !== pStatus) { 
-                        p.status = pStatus; 
-                        pStatus ? p.marker.bindTooltip(pStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }) : p.marker.unbindTooltip(); 
-                    }
+                    // 更新外观 (如果变僵尸了)
+                    var cssClass = isZombie ? 'emoji-marker-icon zombie-icon-style' : 'emoji-marker-icon other-icon-style';
+                    p.marker.setIcon(L.divIcon({ className: cssClass, html: pAvatar, iconSize: [40, 40], iconAnchor: [20, 20] }));
                 }
                 updatePlayerList();
-            } catch (e) { console.error("Msg Error", e); }
+            } catch (e) {}
         }
 
         // ========================
-        // 辅助与UI
+        // UI & Tools
         // ========================
         var currentViewMode = 'auto';
         function setViewMode(mode, btnElement) {
-            currentViewMode = mode; var btns = document.querySelectorAll('.view-opt'); btns.forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); applyViewMode();
+            currentViewMode = mode; document.querySelectorAll('.view-opt').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); applyViewMode();
         }
         function applyViewMode() {
-            var body = document.body; var isMobile = false;
-            if (currentViewMode === 'mobile') isMobile = true; else if (currentViewMode === 'pc') isMobile = false; else isMobile = window.innerWidth <= 600;
-            if (isMobile) { body.classList.add('view-mobile'); if (!body.dataset.initMobile) { toggleChat(true); togglePlayerPanel(true); body.dataset.initMobile = "true"; } } else { body.classList.remove('view-mobile'); }
+            var isMobile = (currentViewMode === 'mobile') || (currentViewMode === 'auto' && window.innerWidth <= 600);
+            if (isMobile) { document.body.classList.add('view-mobile'); if (!document.body.dataset.initMobile) { toggleChat(true); togglePlayerPanel(); document.body.dataset.initMobile = "true"; } } 
+            else { document.body.classList.remove('view-mobile'); }
         }
-        window.addEventListener('resize', function() { if (currentViewMode === 'auto') applyViewMode(); });
+        window.addEventListener('resize', applyViewMode);
 
         function togglePlayerPanel() {
             var content = document.getElementById('player-content'); var icon = document.getElementById('player-toggle-icon'); 
-            var isHidden = content.style.display === 'none';
-            content.style.display = isHidden ? 'block' : 'none';
-            icon.innerText = isHidden ? "▼" : "◀";
-            icon.style.transform = isHidden ? "rotate(0deg)" : "rotate(90deg)";
+            content.style.display = content.style.display === 'none' ? 'block' : 'none';
+            icon.innerText = content.style.display === 'none' ? "◀" : "▼";
+            icon.style.transform = content.style.display === 'none' ? "rotate(90deg)" : "rotate(0deg)";
         }
         function toggleChat(forceCollapse) {
             var panel = document.getElementById('chat-panel'); var icon = document.getElementById('chat-toggle-icon'); var badge = document.getElementById('chat-badge');
@@ -597,26 +556,15 @@
 
         function toggleMeasure() {
             isMeasuring = !isMeasuring; var btn = document.getElementById('measure-btn');
-            if(isMeasuring) { 
-                btn.classList.add('active'); btn.innerHTML = "❌"; document.getElementById('map').style.cursor = "crosshair"; 
-                showToast("点击地图两点测量"); 
-                if(isFollowing) toggleFollow(); 
-            } else { 
-                btn.classList.remove('active'); btn.innerHTML = "📏"; document.getElementById('map').style.cursor = ""; clearMeasure(); 
-            }
+            if(isMeasuring) { btn.classList.add('active'); btn.innerHTML = "❌"; document.getElementById('map').style.cursor = "crosshair"; showToast("点击两点测量"); if(isFollowing) toggleFollow(); } 
+            else { btn.classList.remove('active'); btn.innerHTML = "📏"; document.getElementById('map').style.cursor = ""; clearMeasure(); }
         }
         function clearMeasure() { if(measureLine) map.removeLayer(measureLine); measureTips.forEach(t => map.removeLayer(t)); measurePoints = []; measureTips = []; }
 
         function toggleFollow() {
             isFollowing = !isFollowing; var btn = document.getElementById('follow-btn');
-            if(isFollowing) { 
-                btn.classList.add('active'); 
-                if(myLatLng) map.flyTo(myLatLng, 18); 
-                showToast("视角跟随已开启");
-            } else { 
-                btn.classList.remove('active'); 
-                showToast("视角跟随已关闭");
-            }
+            if(isFollowing) { btn.classList.add('active'); if(myLatLng) map.flyTo(myLatLng, 18); showToast("视角跟随开启"); } 
+            else { btn.classList.remove('active'); showToast("视角跟随关闭"); }
         }
 
         function onMapClick(e) {
@@ -625,8 +573,7 @@
                 var tip = L.circleMarker(e.latlng, { color: '#00f3ff', radius: 4 }).addTo(map); measureTips.push(tip);
                 if (measurePoints.length === 2) {
                     var p1 = measurePoints[0]; var p2 = measurePoints[1];
-                    var dist = map.distance(p1, p2); 
-                    var distStr = dist > 1000 ? (dist/1000).toFixed(2) + " km" : Math.round(dist) + " m";
+                    var dist = map.distance(p1, p2); var distStr = dist > 1000 ? (dist/1000).toFixed(2) + " km" : Math.round(dist) + " m";
                     measureLine = L.polyline([p1, p2], { color: '#00f3ff', weight: 2, dashArray: '5, 5' }).addTo(map);
                     measureLine.bindPopup(`<b>📏 ${distStr}</b>`).openPopup();
                     measurePoints = []; setTimeout(() => { measureTips.forEach(t => map.removeLayer(t)); measureTips = []; }, 500);
@@ -660,8 +607,6 @@
             var t = document.getElementById('toast'); t.innerText = msg; t.style.opacity = 1;
             setTimeout(function(){ t.style.opacity = 0; }, 2500);
         }
-        
-        // 复制坐标
         window.copyMyCoord = function() {
             if(!myLatLng) return;
             var text = myLatLng.lat.toFixed(6) + "," + myLatLng.lng.toFixed(6);
@@ -671,24 +616,26 @@
         function triggerQuietUpdate() { clearTimeout(debounceTimer); debounceTimer = setTimeout(function() { locateAndShare(false); }, 800); }
         document.getElementById('my-name-input').addEventListener('input', function(e) { myName = e.target.value.trim(); SafeStorage.setItem('my_nickname', myName); triggerQuietUpdate(); });
         document.getElementById('my-avatar-input').addEventListener('input', function(e) { myCurrentAvatar = e.target.value; updateMyMarkerVisuals(); triggerQuietUpdate(); });
-        document.getElementById('my-status-input').addEventListener('input', function(e) { myCurrentStatus = e.target.value; updateMyMarkerVisuals(); triggerQuietUpdate(); });
 
         function updateMyMarkerVisuals() {
             if(!myMarker) return;
             var arrowHtml = `<div class="heading-arrow"></div>` + myCurrentAvatar;
-            myMarker.setIcon(L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }));
-            if (myCurrentStatus) myMarker.bindTooltip(myCurrentStatus, { permanent: true, direction: 'top', offset: [0, -22], className: 'status-bubble' }); else myMarker.unbindTooltip();
+            // 如果自己是僵尸，用紫色光环
+            var cssClass = amIZombie ? 'emoji-marker-icon zombie-icon-style' : 'emoji-marker-icon my-icon-style';
+            myMarker.setIcon(L.divIcon({ className: cssClass, html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }));
             updateHeadingVisuals();
         }
         function updatePlayerList() {
             var container = document.getElementById('player-list-container'); container.innerHTML = ""; var hasPlayers = false;
             for (var id in otherPlayers) {
                 hasPlayers = true; var p = otherPlayers[id];
-                var distText = "--"; if (myLatLng) { var d = map.distance(myLatLng, [p.lat, p.lng]); d > 1000 ? distText = (d/1000).toFixed(1)+"km" : distText = Math.round(d)+"m"; }
-                var statusHtml = p.status ? `<div class="player-status-text">💬 ${p.status}</div>` : '';
+                var distText = "--"; if (myLatLng) { var d = map.distance(myLatLng, [p.lat, p.lng]); distText = d > 1000 ? (d/1000).toFixed(1)+"km" : Math.round(d)+"m"; }
+                
+                // 僵尸状态显示
+                var statusHtml = p.isZombie ? `<div style="color:red;font-weight:bold;font-size:10px;">🧟‍♂️ 已变异</div>` : "";
                 var item = document.createElement('div'); item.className = 'player-item';
-                item.innerHTML = `<div class="player-info"><div class="player-head"><span>${p.avatar}</span><span>${p.name}</span></div>${statusHtml}</div><div class="player-dist">${distText}</div>`;
-                (function(targetLat, targetLng) { item.onclick = function() { map.flyTo([targetLat, targetLng], 18, { duration: 1.5 }); }; })(p.lat, p.lng);
+                item.innerHTML = `<div class="player-info"><div class="player-head"><span>${p.avatar || '📍'}</span><span>${p.name}</span></div>${statusHtml}</div><div class="player-dist">${distText}</div>`;
+                (function(targetLat, targetLng) { item.onclick = function() { map.flyTo([targetLat, targetLng], 18); }; })(p.lat, p.lng);
                 container.appendChild(item);
             }
             if (!hasPlayers) container.innerHTML = '<div style="font-size:12px; color:#ccc; text-align:center; padding:10px;">暂无其他人</div>';
@@ -704,21 +651,16 @@
         function onLocationFound(e) {
             myLatLng = e.latlng; 
             if (isFollowing) map.panTo(myLatLng);
-            
             if (!myPolyline) myPolyline = L.polyline([], { color: '#3388ff', weight: 4, opacity: 0.8 }).addTo(map); 
             myPolyline.addLatLng(e.latlng);
-
             if (!myMarker) { 
                 var arrowHtml = `<div class="heading-arrow"></div>` + myCurrentAvatar;
-                myMarker = L.marker(e.latlng, { icon: L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }) })
-                    .addTo(map)
+                myMarker = L.marker(e.latlng, { icon: L.divIcon({ className: 'emoji-marker-icon my-icon-style', html: arrowHtml, iconSize: [40, 40], iconAnchor: [20, 20] }) }).addTo(map)
                     .bindPopup(`<b>我</b><br><button onclick="copyMyCoord()" style="font-size:11px;margin-top:5px;">📋 复制坐标</button>`).openPopup(); 
-                if(myCurrentStatus) updateMyMarkerVisuals(); 
+                if(amIZombie) updateMyMarkerVisuals(); // 保持僵尸状态外观
             } else myMarker.setLatLng(e.latlng);
-            
             if (isFirstLocate) { map.setView(e.latlng, 17); isFirstLocate = false; }
-            
-            publishData({ type: 'player_update', id: myUniqueId, name: myName, lat: e.latlng.lat, lng: e.latlng.lng, avatar: myCurrentAvatar, status: myCurrentStatus });
+            publishData({ type: 'player_update', id: myUniqueId, name: myName, lat: e.latlng.lat, lng: e.latlng.lng, avatar: myCurrentAvatar });
         }
 
         if (window.DeviceOrientationEvent) {
@@ -730,7 +672,7 @@
             }, true);
         }
         function updateHeadingVisuals() {
-            var arrow = document.querySelector('.my-icon-style .heading-arrow');
+            var arrow = document.querySelector('.emoji-marker-icon .heading-arrow');
             if(arrow) { arrow.style.display = 'block'; arrow.style.transform = `translateX(-50%) rotate(${myHeading}deg)`; }
         }
     </script>
